@@ -12,7 +12,8 @@ ThisBuild / licenses := Seq(License.MIT)
 ThisBuild / developers := List(
   tlGitHubDev("eejbyfeldt", "Emil Ejbyfeldt"),
   tlGitHubDev("dahlbaek", "Jonas Dahlbæk"),
-  tlGitHubDev("ch1nq", "Aske Ching")
+  tlGitHubDev("ch1nq", "Aske Ching"),
+  tlGitHubDev("shambala-ifmo", "Andrei Mavrin")
 )
 
 ThisBuild / scalaVersion := Dependencies.scala3Version
