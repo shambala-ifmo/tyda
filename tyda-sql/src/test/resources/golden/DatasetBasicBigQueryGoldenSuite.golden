@@ -83,7 +83,7 @@ SELECT t1.value AS value FROM t1 LIMIT 0
 ------ end
 
 ------ Test: nested option upcast
-SELECT CASE WHEN (t1.value IS NOT NULL) THEN [t1.value] ELSE CAST([] AS ARRAY<INT>) END AS value FROM t1
+SELECT CASE WHEN (t1.value IS NOT NULL) THEN [t1.value.value] ELSE CAST([] AS ARRAY<INT>) END AS value FROM t1
 ------ end
 
 ------ Test: select 2
