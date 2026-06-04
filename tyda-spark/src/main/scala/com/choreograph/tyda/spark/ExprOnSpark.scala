@@ -51,7 +51,6 @@ import com.choreograph.tyda.shapeless3extras.mapConst
 import com.choreograph.tyda.shapeless3extras.tupleInstances
 import com.choreograph.tyda.spark.CodecToCatalystType.catalystType
 import com.choreograph.tyda.spark.PrimitiveAggregateOnSpark.CompatibleIntegral
-import com.choreograph.tyda.spark.UdfBuilder.createUdf
 import com.choreograph.tyda.unreachable
 
 private[spark] object ExprOnSpark {

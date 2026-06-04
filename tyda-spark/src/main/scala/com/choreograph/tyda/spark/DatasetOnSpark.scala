@@ -205,7 +205,6 @@ object DatasetOnSpark {
 
   private def toIntermediate[T](ds: Dataset[T])(using spark: SparkSession): IntermediateDataset[T] = {
     import CodecToEncoder.convert
-    import UdfBuilder.createUdf
     given codec: Codec[T] = ds.codec
     def compute: IntermediateDataset[T] =
       ds match {
