@@ -115,6 +115,17 @@ private class ExprOnSpark[T](cfs: Map[ExprNode.Reference[?], ColumnFactory[?]]) 
   private def cfFromRef(ref: ExprNode.Reference[?]): ColumnFactory[?] =
     cfs.get(ref).getOrElse(Errors.failUnexpectedReference(ref, cfs.keys))
 
+  private def transformSeq[T](seq: ExprNode[Seq[T]], compiled: CompiledExpr[T, ?])(using spark: SparkSession): Column = 
+    val seqCol = convert(seq)
+    transform(
+      seqCol,
+      elem => {
+        val elemCf = ColumnFactory(elem)(using compiled.arg.codec)
+        new ExprOnSpark[T](cfs + (compiled.arg -> elemCf)).convert(compiled.expr)
+      }
+    )
+
+
   def convert(expr: ExprNode[?])(using spark: SparkSession): Column =
     expr match {
       case ExprNode.Select(ref: ExprNode.Reference[?], name) => cfFromRef(ref).column(name)
@@ -143,33 +154,12 @@ private class ExprOnSpark[T](cfs: Map[ExprNode.Reference[?], ColumnFactory[?]]) 
         if values.isEmpty then arr.cast(catalystType(expr.codec)) else arr
       case ExprNode.ConcatSeq(lhs, rhs) => concat(convert(lhs), (convert(rhs)))
       case ExprNode.MapSeq(seq, f) =>
-        val seqCol = convert(seq)
-        transform(
-          seqCol,
-          elem => {
-            val elemCf = ColumnFactory(elem)(using f.arg.codec)
-            new ExprOnSpark[T](cfs + (f.arg -> elemCf)).convert(f.expr)
-          }
-        )
+        transformSeq(seq, f)
       case ExprNode.FlatMapSeq(seq, f) =>
-        val seqCol = convert(seq)
-        val transformed = transform(
-          seqCol,
-          elem => {
-            val elemCf = ColumnFactory(elem)(using f.arg.codec)
-            new ExprOnSpark[T](cfs + (f.arg -> elemCf)).convert(f.expr)
-          }
-        )
+        val transformed = transformSeq(seq, f)
         org.apache.spark.sql.functions.flatten(transformed)
       case ExprNode.FilterSeq(seq, predicate) =>
-        val seqCol = convert(seq)
-        filter(
-          seqCol,
-          elem => {
-            val elemCf = ColumnFactory(elem)(using predicate.arg.codec)
-            new ExprOnSpark[T](cfs + (predicate.arg -> elemCf)).convert(predicate.expr)
-          }
-        )
+        transformSeq(seq, predicate)
       case ExprNode.AggregateSeq(seq, onEmpty, agg) =>
         val asFold = PrimitiveAggregateAsFold(onEmpty, agg)(using seq.codec.element)
         aggregate(
