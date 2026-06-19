@@ -393,6 +393,16 @@ trait ExprEvaluationSuiteBase extends AnyFunSuite {
     _.flatMap(x => seq(x / 2, x / 2 + 1)),
     values => values.flatMap(x => List(x / 2, x / 2 + 1))
   )
+  testHasSameBehavior[Seq[Int], Seq[Int]](
+    "seq flatMap with Option keeps Some, drops None",
+    _.flatMap(x => Expr.when(x > 0, x)),
+    _.flatMap(x => Option.when(x > 0)(x))
+  )
+  testHasSameBehavior[List[Int], List[Int]](
+    "seq flatMap list with Option keeps Some, drops None",
+    _.flatMap(x => Expr.when(x > 0, x)),
+    _.flatMap(x => Option.when(x > 0)(x))
+  )
   testHasSameBehavior[CustomIntSeq, IndexedSeq[Int]]("seq map custom collection", _.map(_ / 2), _.map(_ / 2))
   testHasSameBehavior[Int, Seq[Int]](
     "seq map constructed",

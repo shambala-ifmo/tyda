@@ -666,14 +666,28 @@ trait ExprApi[Expr[T]] {
       fromRepr(ExprNode.MapSeq(unlift(seq.toSeq), compiled))(using compiled.codec)
     }
 
+    /** Flattens a sequence of iterables into a single sequence.
+      *
+      * Works with any `Iterable`, including `Seq`, `List`, and `Option`.
+      */
+    def flatten[U](using ev: T =:= Iterable[U], tag: ClassTag[CC[U]]): Expr[CC[U]] = {
+      val node: ExprNode[Seq[T]] = unlift(seq.toSeq)
+      // TYPE SAFETY: ev witnesses that T =:= Iterable[U], so Seq[T] =:= Seq[Iterable[U]]
+      val castNode = node.asInstanceOf[ExprNode[Seq[Iterable[U]]]]
+      given Codec[U] = castNode.codec.element.element
+      fromRepr(ExprNode.FlattenSeq(castNode))
+    }
+
     /** FlatMaps each element of the sequence using the given function, then
       * concatenates the resulting sequences into one.
+      *
+      * Works with any `Iterable` return type, including `Seq`, `List`, and
+      * `Option`.
       */
-    def flatMap[U, I: AsExpr.Of[Seq[U]]](f: Expr[T] => I)(using ClassTag[CC[U]]): Expr[CC[U]] = {
-      val arg = ExprNode.Reference[T]()(using seq.valueCodec)
-      val fExpr = f.andThen(AsExpr(_))
-      val compiled = CompiledExpr(arg, unlift(fExpr(lift(arg))))
-      fromRepr(ExprNode.FlatMapSeq(unlift(seq.toSeq), compiled))(using compiled.codec.element)
+    def flatMap[U, I: AsExpr.Of[Iterable[U]]](f: Expr[T] => I)(using ClassTag[CC[U]]): Expr[CC[U]] = {
+      val mapped = unlift(seq.map(f).toSeq)
+      given Codec[U] = mapped.codec.element.element
+      fromRepr(ExprNode.FlattenSeq(mapped))
     }
 
     /** Filters the sequence to only include elements satisfying the predicate.

@@ -1166,6 +1166,14 @@ SELECT flatten(transform(t1.value, c0 -> array(CAST(div(c0, CAST(2 AS INT)) AS I
 SELECT flatten(transform(t1.value, c0 -> array(CAST(div(c0, CAST(2 AS INT)) AS INT), (CAST(div(c0, CAST(2 AS INT)) AS INT) + CAST(1 AS INT))))) AS value FROM t1
 ------ end
 
+------ Test: seq flatMap list with Option keeps Some, drops None
+SELECT flatten(transform(t1.value, c0 -> CASE WHEN (CASE WHEN (NOT (c0 <= CAST(0 AS INT))) THEN c0 END IS NOT NULL) THEN array(CASE WHEN (NOT (c0 <= CAST(0 AS INT))) THEN c0 END) ELSE CAST(array() AS ARRAY<INT>) END)) AS value FROM t1
+------ end
+
+------ Test: seq flatMap with Option keeps Some, drops None
+SELECT flatten(transform(t1.value, c0 -> CASE WHEN (CASE WHEN (NOT (c0 <= CAST(0 AS INT))) THEN c0 END IS NOT NULL) THEN array(CASE WHEN (NOT (c0 <= CAST(0 AS INT))) THEN c0 END) ELSE CAST(array() AS ARRAY<INT>) END)) AS value FROM t1
+------ end
+
 ------ Test: seq forall
 SELECT aggregate(transform(t1.value, c0 -> (c0 < CAST(0 AS INT))), TRUE, (c1, c2) -> (c1 AND c2), c3 -> c3) AS value FROM t1
 ------ end

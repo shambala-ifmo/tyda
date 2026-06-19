@@ -13,6 +13,7 @@ import org.apache.spark.sql.functions.date_from_unix_date
 import org.apache.spark.sql.functions.element_at
 import org.apache.spark.sql.functions.endswith
 import org.apache.spark.sql.functions.filter
+import org.apache.spark.sql.functions.flatten
 import org.apache.spark.sql.functions.from_json
 import org.apache.spark.sql.functions.isnan
 import org.apache.spark.sql.functions.length
@@ -153,9 +154,7 @@ private class ExprOnSpark[T](cfs: Map[ExprNode.Reference[?], ColumnFactory[?]]) 
         if values.isEmpty then arr.cast(catalystType(expr.codec)) else arr
       case ExprNode.ConcatSeq(lhs, rhs) => concat(convert(lhs), (convert(rhs)))
       case ExprNode.MapSeq(seq, f) => transform.tupled(transformArgs(seq, f))
-      case ExprNode.FlatMapSeq(seq, f) =>
-        val transformed = transform.tupled(transformArgs(seq, f))
-        org.apache.spark.sql.functions.flatten(transformed)
+      case ExprNode.FlattenSeq(seq) => flatten(convert(seq))
       case ExprNode.FilterSeq(seq, predicate) => filter.tupled(transformArgs(seq, predicate))
       case ExprNode.AggregateSeq(seq, onEmpty, agg) =>
         val asFold = PrimitiveAggregateAsFold(onEmpty, agg)(using seq.codec.element)
