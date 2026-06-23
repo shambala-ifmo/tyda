@@ -637,7 +637,7 @@ trait ExprApi[Expr[T]] {
     }
   }
 
-  extension [T, CC[X] <: Seq[X], C <: Seq[T] & SeqOps[T, CC, CC[T]]](seq: Expr[C]) {
+  extension [T, CC[X] <: Seq[X] & SeqOps[X, CC, CC[X]], C <: Seq[T] & SeqOps[T, CC, CC[T]]](seq: Expr[C]) {
     private def valueCodec: Codec[T] = unlift(seq).codec.element
 
     private def factory: IterableFactory[CC] =
@@ -669,11 +669,8 @@ trait ExprApi[Expr[T]] {
     /** FlatMaps each element of the sequence using the given function, then
       * concatenates the resulting sequences into one.
       */
-    def flatMap[U, I: AsExpr.Of[Iterable[U]]](f: Expr[T] => I)(using ClassTag[CC[U]]): Expr[CC[U]] = {
-      val mapped = unlift(seq.map(f).toSeq)
-      given Codec[U] = mapped.codec.element.element
-      fromRepr(ExprNode.FlattenSeq(mapped))
-    }
+    def flatMap[U, I: AsExpr.Of[Iterable[U]]](f: Expr[T] => I)(using ClassTag[CC[U]]): Expr[CC[U]] =
+      seq.map(f).flatten
 
     /** Filters the sequence to only include elements satisfying the predicate.
       */
@@ -720,9 +717,9 @@ trait ExprApi[Expr[T]] {
       exists(e => lift(ExprNode.Equals(unlift(e), unlift(AsExpr(value)))))
   }
 
-  extension [U, CC[X] <: Seq[X], C <: Seq[Iterable[U]] & SeqOps[Iterable[U], CC, CC[Iterable[U]]]](
-      seq: Expr[C]
-  ) {
+  extension [U, CC[X] <: Seq[X] & SeqOps[X, CC, CC[X]], C <: Seq[
+    Iterable[U]
+  ] & SeqOps[Iterable[U], CC, CC[Iterable[U]]]](seq: Expr[C]) {
 
     /** Flattens a sequence of iterables into a single sequence.
       */
