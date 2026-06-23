@@ -317,7 +317,8 @@ private def exprToSqlExpr[T](fullExpr: ExprNode[T], args: UnparserArgs): Result[
               val elem = unwrapArrayElement(SqlExpr.Ident(innerName), operand.codec.element.element, dialect)
               val query = Query.Select(NonEmpty(elem), joinFrom)
               SqlExpr.Function(makeArray, Seq(SqlExpr.Subquery(query)))
-            case SqlDialect.ArrayHigherOrderFunctions.Lambda(map = _) => SqlExpr.Function("flatten", Seq(arr))
+            case SqlDialect.ArrayHigherOrderFunctions.Lambda(flatten = flatten) =>
+              SqlExpr.Function(flatten, Seq(arr))
           }
         )
       case ExprNode.FilterSeq(operand, predicate) => for {

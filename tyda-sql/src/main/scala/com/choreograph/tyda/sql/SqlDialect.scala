@@ -242,7 +242,7 @@ object SqlDialect {
       * array_transform(array_column, x -> x + 1)
       * ```
       */
-    case Lambda(map: String, aggregate: String, filter: String)
+    case Lambda(map: String, aggregate: String, filter: String, flatten: String)
 
     /** Higher order functions can be implemented using a subquery e.g.
       * ```
@@ -420,7 +420,8 @@ object SqlDialect {
     arrayConcat = "concat",
     arrayElement = ArrayElement.Function("element_at"),
     arraySize = "size",
-    arrayHigherOrderFunctions = ArrayHigherOrderFunctions.Lambda("transform", "aggregate", "filter"),
+    arrayHigherOrderFunctions =
+      ArrayHigherOrderFunctions.Lambda("transform", "aggregate", "filter", "flatten"),
     binaryLiteral = BinaryLiteral.HexString,
     boolAndFunction = "bool_and",
     boolOrFunction = "bool_or",
