@@ -132,6 +132,9 @@ object ExprEvaluation {
           // TYPE SAFETY: We know that when there are multiple arguments they will be wrapped in a Tuple.
           if args.size == 1 then from => seqEval(from).map(v => fEval((from, v)))
           else from => seqEval(from).map(v => fEval(from.asInstanceOf[Tuple] :* v))
+        case ExprNode.FlattenSeq(seq) =>
+          val seqEval = impl(seq)
+          from => seqEval(from).flatten
         case ExprNode.FilterSeq(seq, predicate) =>
           val seqEval = impl(seq)
           val predEval = lambdaN(args :+ predicate.arg, predicate.expr)

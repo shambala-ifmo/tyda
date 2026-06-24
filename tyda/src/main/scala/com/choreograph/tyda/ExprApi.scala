@@ -25,6 +25,8 @@ import com.choreograph.tyda.shapeless3extras.tupleInstances
   * the code.
   */
 trait ExprApi[Expr[T]] {
+  private[tyda] type SeqCC[X, CC[_]] = Seq[X] & SeqOps[X, CC, CC[X]]
+
   private[tyda] def lift[T](e: ExprNode[T]): Expr[T]
   private[tyda] def unlift[T](e: Expr[T]): ExprNode[T]
 
@@ -637,7 +639,7 @@ trait ExprApi[Expr[T]] {
     }
   }
 
-  extension [T, CC[X] <: Seq[X], C <: Seq[T] & SeqOps[T, CC, CC[T]]](seq: Expr[C]) {
+  extension [T, CC[X] <: SeqCC[X, CC], C <: SeqCC[T, CC]](seq: Expr[C]) {
     private def valueCodec: Codec[T] = unlift(seq).codec.element
 
     private def factory: IterableFactory[CC] =
@@ -665,6 +667,12 @@ trait ExprApi[Expr[T]] {
       val compiled = CompiledExpr(arg, unlift(fExpr(lift(arg))))
       fromRepr(ExprNode.MapSeq(unlift(seq.toSeq), compiled))(using compiled.codec)
     }
+
+    /** FlatMaps each element of the sequence using the given function, then
+      * concatenates the resulting sequences into one.
+      */
+    def flatMap[U, I: AsExpr.Of[Iterable[U]]](f: Expr[T] => I)(using ClassTag[CC[U]]): Expr[CC[U]] =
+      seq.map(f).flatten
 
     /** Filters the sequence to only include elements satisfying the predicate.
       */
@@ -709,6 +717,20 @@ trait ExprApi[Expr[T]] {
       */
     def contains[I: AsExpr.Of[T]](value: I): Expr[Boolean] =
       exists(e => lift(ExprNode.Equals(unlift(e), unlift(AsExpr(value)))))
+  }
+
+  extension [U, CC[X] <: SeqCC[X, CC], C <: SeqCC[Iterable[U], CC]](seq: Expr[C]) {
+
+    /** Flattens a sequence of iterables into a single sequence.
+      */
+    def flatten(using tag: ClassTag[CC[U]]): Expr[CC[U]] = {
+      val node = unlift(seq.toSeq)
+      given Codec[U] = node.codec.element.element
+      lift(ExprNode.FromRepr(
+        ExprNode.FlattenSeq(node),
+        Codec.Iterable[U, CC[U]](tag, Codec[U])(using seq.factory)
+      ))
+    }
   }
 
   extension [K, V](entries: Expr[Seq[(K, V)]]) {

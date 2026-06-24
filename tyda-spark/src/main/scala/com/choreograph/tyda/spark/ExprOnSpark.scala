@@ -13,6 +13,7 @@ import org.apache.spark.sql.functions.date_from_unix_date
 import org.apache.spark.sql.functions.element_at
 import org.apache.spark.sql.functions.endswith
 import org.apache.spark.sql.functions.filter
+import org.apache.spark.sql.functions.flatten
 import org.apache.spark.sql.functions.from_json
 import org.apache.spark.sql.functions.isnan
 import org.apache.spark.sql.functions.length
@@ -116,6 +117,16 @@ private class ExprOnSpark[T](cfs: Map[ExprNode.Reference[?], ColumnFactory[?]]) 
   private def cfFromRef(ref: ExprNode.Reference[?]): ColumnFactory[?] =
     cfs.get(ref).getOrElse(Errors.failUnexpectedReference(ref, cfs.keys))
 
+  private def buildHigherOrderArgs[T](seq: ExprNode[Seq[T]], compiled: CompiledExpr[T, ?])(using
+      spark: SparkSession
+  ) = (
+    convert(seq),
+    (elem: Column) => {
+      val elemCf = ColumnFactory(elem)(using compiled.arg.codec)
+      new ExprOnSpark[T](cfs + (compiled.arg -> elemCf)).convert(compiled.expr)
+    }
+  )
+
   def convert(expr: ExprNode[?])(using spark: SparkSession): Column =
     expr match {
       case ExprNode.Select(ref: ExprNode.Reference[?], name) => cfFromRef(ref).column(name)
@@ -143,24 +154,9 @@ private class ExprOnSpark[T](cfs: Map[ExprNode.Reference[?], ColumnFactory[?]]) 
         val arr = array(fieldExprs*)
         if values.isEmpty then arr.cast(catalystType(expr.codec)) else arr
       case ExprNode.ConcatSeq(lhs, rhs) => concat(convert(lhs), (convert(rhs)))
-      case ExprNode.MapSeq(seq, f) =>
-        val seqCol = convert(seq)
-        transform(
-          seqCol,
-          elem => {
-            val elemCf = ColumnFactory(elem)(using f.arg.codec)
-            new ExprOnSpark[T](cfs + (f.arg -> elemCf)).convert(f.expr)
-          }
-        )
-      case ExprNode.FilterSeq(seq, predicate) =>
-        val seqCol = convert(seq)
-        filter(
-          seqCol,
-          elem => {
-            val elemCf = ColumnFactory(elem)(using predicate.arg.codec)
-            new ExprOnSpark[T](cfs + (predicate.arg -> elemCf)).convert(predicate.expr)
-          }
-        )
+      case ExprNode.MapSeq(seq, f) => transform.tupled(buildHigherOrderArgs(seq, f))
+      case ExprNode.FlattenSeq(seq) => flatten(convert(seq))
+      case ExprNode.FilterSeq(seq, predicate) => filter.tupled(buildHigherOrderArgs(seq, predicate))
       case ExprNode.AggregateSeq(seq, onEmpty, agg) =>
         val asFold = PrimitiveAggregateAsFold(onEmpty, agg)(using seq.codec.element)
         aggregate(

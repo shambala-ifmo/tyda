@@ -39,6 +39,7 @@ import com.choreograph.tyda.sql.SqlDialect.TrimFunction
 import com.choreograph.tyda.sql.ast.DdlType
 import com.choreograph.tyda.sql.ast.DdlWriter
 import com.choreograph.tyda.sql.ast.From
+import com.choreograph.tyda.sql.ast.JoinType
 import com.choreograph.tyda.sql.ast.Query
 import com.choreograph.tyda.sql.ast.SqlExpr
 import com.choreograph.tyda.unreachable
@@ -305,6 +306,21 @@ private def exprToSqlExpr[T](fullExpr: ExprNode[T], args: UnparserArgs): Result[
           case SqlDialect.ArrayHigherOrderFunctions.Lambda(map = mapFunction) =>
             SqlExpr.Function(mapFunction, Seq(arr, SqlExpr.LambdaFunction(arg, fExpr)))
         }
+      case ExprNode.FlattenSeq(operand) => inner(operand).map(arr =>
+          dialect.arrayHigherOrderFunctions match {
+            case SqlDialect.ArrayHigherOrderFunctions.Subquery(makeArray, unnest) =>
+              val outerName = args.aliasGen.column()
+              val innerName = args.aliasGen.column()
+              val outerFrom = From.Expr(SqlExpr.Function(unnest, Seq(arr)), outerName)
+              val innerFrom = From.Expr(SqlExpr.Function(unnest, Seq(SqlExpr.Ident(outerName))), innerName)
+              val joinFrom = From.Join(outerFrom, innerFrom, JoinType.Inner, None)
+              val elem = unwrapArrayElement(SqlExpr.Ident(innerName), operand.codec.element.element, dialect)
+              val query = Query.Select(NonEmpty(elem), joinFrom)
+              SqlExpr.Function(makeArray, Seq(SqlExpr.Subquery(query)))
+            case SqlDialect.ArrayHigherOrderFunctions.Lambda(flatten = flatten) =>
+              SqlExpr.Function(flatten, Seq(arr))
+          }
+        )
       case ExprNode.FilterSeq(operand, predicate) => for {
           arr <- inner(operand)
           argName = args.aliasGen.column()

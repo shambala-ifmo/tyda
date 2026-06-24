@@ -139,6 +139,7 @@ private def explainLambdaBody[T](expr: ExprNode[T], args: Map[ExprNode.Reference
         val argName = s"x${args.size}"
         val argsWithOuter = args + (f.arg -> argName)
         s"${body(seq)}.map($argName => ${explainLambdaBody(f.expr, argsWithOuter)})"
+      case ExprNode.FlattenSeq(seq) => s"${body(seq)}.flatten"
       case ExprNode.FilterSeq(seq, predicate) =>
         val argName = s"x${args.size}"
         val argsWithOuter = args + (predicate.arg -> argName)
