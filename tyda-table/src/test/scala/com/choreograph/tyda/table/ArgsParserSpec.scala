@@ -347,6 +347,13 @@ class ArgsParserSuite extends AnyFunSuite {
     assert(ArgsParser.serialize(expected) == args)
   }
 
+  test("support reading Source.GraphDb") {
+    val args = Seq("--source-host", "graphdb.example.com", "--source-repository-name", "my-repo")
+    val expected = ArgsWithSource(Source.GraphDb("graphdb.example.com", "my-repo"))
+    assert(ArgsParser.parse[ArgsWithSource](args) == Right(expected))
+    assert(ArgsParser.serialize(expected) == args)
+  }
+
   test("support reading Option[Source]") {
     val args = Seq("--source-base-path", "/tmp")
     val expected = ArgsWithOptionSource(Some(Source.Path("/tmp")))
@@ -358,6 +365,13 @@ class ArgsParserSuite extends AnyFunSuite {
     val args = Seq()
     val expected = ArgsWithOptionSource(None)
     assert(ArgsParser.parse[ArgsWithOptionSource](args) == Right(expected))
+    assert(ArgsParser.serialize(expected) == args)
+  }
+
+  test("support reading Sink.GraphDb") {
+    val args = Seq("--sink-host", "graphdb.example.com", "--sink-repository-name", "my-repo")
+    val expected = ArgsWithSink(Sink.GraphDb("graphdb.example.com", "my-repo"))
+    assert(ArgsParser.parse[ArgsWithSink](args) == Right(expected))
     assert(ArgsParser.serialize(expected) == args)
   }
 
@@ -652,9 +666,26 @@ class ArgsParserSuite extends AnyFunSuite {
                       |Table:
                       |  --source-identifier <string> [required]
                       |  --source-location <native|big-query> (default: native)
+                      |GraphDb:
+                      |  --source-host <string> [required]
+                      |  --source-repository-name <string> [required]
                       |Test:
                       |  --source-data <BASE64 encoded java serialization of object> [required]
                       |  --source-metadata-file_path <string> [required]""".stripMargin
+    assert(help == expected)
+  }
+
+  test("help for args with sink") {
+    val help = ArgsParser.help[ArgsWithSink]
+    val expected = """|Alternative --sink one of:
+                      |Path:
+                      |  --sink-base-path <string> [required]
+                      |  --sink-format <parquet|json> (default: parquet)
+                      |GraphDb:
+                      |  --sink-host <string> [required]
+                      |  --sink-repository-name <string> [required]
+                      |Test:
+                      |  --sink-verify <BASE64 encoded java serialization of object> [required]""".stripMargin
     assert(help == expected)
   }
 }

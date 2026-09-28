@@ -144,6 +144,15 @@ class TydaJobSpec extends AnyFunSuite {
     assert(ranVerify)
   }
 
+  test("GraphDb sink can not be written through Tyda's Dataset API") {
+    intercept[UnsupportedOperationException] {
+      testJob(Job.Args(
+        Source.Test(Seq(Model("a"), Model("b"))),
+        Sink.GraphDb("graphdb.example.com", "my-repo")
+      ))
+    }
+  }
+
   test("checkpoint") {
     var ranVerify1 = false
     var ranVerify2 = false

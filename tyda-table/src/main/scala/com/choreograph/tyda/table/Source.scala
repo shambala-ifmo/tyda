@@ -46,6 +46,15 @@ enum Source[M, P <: Partitioner] {
 
   case Table(identifier: String, location: TableLocation = TableLocation.Native)
 
+  /** Source that is read from a graph database.
+    *
+    * @param host
+    *   The host of the graph database.
+    * @param repositoryName
+    *   The name of the repository within the graph database to read from.
+    */
+  case GraphDb(host: String, repositoryName: String) extends Source[M, P]
+
   /** Source that is read from in a unit test.
     *
     * @param data
@@ -62,6 +71,7 @@ object Source {
       source match {
         case source: Source.Path[M, P] => source.basePath
         case Source.Table(identifier, _) => identifier
+        case Source.GraphDb(host, repositoryName) => s"graphdb://$host/repositories/$repositoryName"
         case Source.Test(_, metadata) => metadata.file_path
       }
   }
@@ -100,6 +110,10 @@ object Source {
         case Source.Path(basePath, _, _, _, _) => Dataset.readPartitionsPaths[V](p.path(basePath))
         case Source.Table(identifier, location) =>
           Dataset.readTablePartitions[V](identifier, location).where(decoder.predicate(p))
+        case Source.GraphDb(_, _) =>
+          throw new UnsupportedOperationException(
+            "GraphDb sources are not readable through Tyda's Dataset API; read from GraphDB directly"
+          )
         case Source.Test(testValues, metadata) =>
           val paths = testValues match {
             case TestValues.Fixed(_) => Seq(metadata.file_path)
@@ -133,6 +147,11 @@ object Source {
           }
         case Source.Table(identifier, location) =>
           ReadDatasetWrapper(Dataset.readTable[V, M](identifier, location), decoder.predicate(p))
+
+        case Source.GraphDb(_, _) =>
+          throw new UnsupportedOperationException(
+            "GraphDb sources are not readable through Tyda's Dataset API; read from GraphDB directly"
+          )
 
         case Source.Test(testData, metadata) => testData match {
             // Special case for empty to not require a valid metadata for that case.

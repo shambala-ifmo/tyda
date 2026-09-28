@@ -53,6 +53,10 @@ class TydaJobContext(private val runner: Runner) {
         case Sink.Path(basePath, format) =>
           val write = dataset.writeToPath(partitioner.path(basePath), format)
           runner.execute(write)
+        case Sink.GraphDb(_, _) =>
+          throw new UnsupportedOperationException(
+            "GraphDb sinks are not writable through Tyda's Dataset API; write to GraphDB directly"
+          )
         case Sink.Test(verifiers) =>
           val verify = verifiers.getVerifier(partitioner)
           val collected = privateCollect(dataset)

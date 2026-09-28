@@ -13,6 +13,15 @@ enum Sink[M, P <: Partitioner] {
     */
   case Path(basePath: String, format: Format = Format.Parquet) extends Sink[M, P]
 
+  /** Sink that is written to a graph database.
+    *
+    * @param host
+    *   The host of the graph database.
+    * @param repositoryName
+    *   The name of the repository within the graph database to write to.
+    */
+  case GraphDb(host: String, repositoryName: String) extends Sink[M, P]
+
   /** Sink that is written to in a unit test.
     *
     * @param verify
