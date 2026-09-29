@@ -20,6 +20,7 @@ import com.choreograph.tyda.aggregates.boolOr
 import com.choreograph.tyda.aggregates.collect
 import com.choreograph.tyda.aggregates.concat
 import com.choreograph.tyda.aggregates.count
+import com.choreograph.tyda.aggregates.countDistinct
 import com.choreograph.tyda.aggregates.countIf
 import com.choreograph.tyda.aggregates.countSome
 import com.choreograph.tyda.aggregates.max
@@ -29,6 +30,7 @@ import com.choreograph.tyda.aggregates.minBy
 import com.choreograph.tyda.aggregates.reduce
 import com.choreograph.tyda.aggregates.sum
 import com.choreograph.tyda.functions.lit
+import com.choreograph.tyda.functions.seq
 import com.choreograph.tyda.functions.some
 import com.choreograph.tyda.functions.tuple
 import com.choreograph.tyda.functions.when
@@ -130,6 +132,26 @@ trait DatasetAggregatesSuite extends DatasetSuite {
     "collect and map pairs",
     ds => ds.groupByKey(_._1).aggregateValue(collect(_._2)).pairs.select(_._1, _._2.map(_.cast[Int] + 1))
   )
+  test[PairSeq, Seq[TinyByte]](
+    "concat and filter",
+    ds => ds.groupByKey(_._1).aggregateValue(concat(_._2)).values.select(_.filter(_.cast[Int] > 1))
+  )
+  test[PairSeq, Seq[TinyByte]](
+    "concat and flatten",
+    ds => ds.groupByKey(_._1).aggregateValue(concat(_._2)).values.select(_.map(x => seq(x, x)).flatten)
+  )
+  test[PairSeq, Seq[TinyByte]](
+    "concat and distinct",
+    ds => ds.groupByKey(_._1).aggregateValue(concat(_._2)).values.select(_.distinct)
+  )
+  test[PairSeq, Boolean](
+    "concat and forall",
+    ds => ds.groupByKey(_._1).aggregateValue(concat(_._2)).values.select(_.forall(_.cast[Int] > 0))
+  )
+  test[PairSeq, Boolean](
+    "concat and exists",
+    ds => ds.groupByKey(_._1).aggregateValue(concat(_._2)).values.select(_.exists(_.cast[Int] > 0))
+  )
 
   test[Int, Int]("min whole row", ds => ds.groupByKey(_ => lit(1)).aggregateValue(min).values)
   test[Int, Long]("count whole row", ds => ds.groupByKey(_ => lit(1)).aggregateValue(count).values)
@@ -142,6 +164,31 @@ trait DatasetAggregatesSuite extends DatasetSuite {
   test[Option[Int], Long](
     "countSome whole row",
     ds => ds.groupByKey(_ => lit(1)).aggregateValue(countSome).values
+  )
+  test[Int, Long]("countDistinct whole row", ds => ds.groupByKey(_ => 1).aggregateValue(countDistinct).values)
+  test[(Int, Int), (Int, Long)](
+    "countDistinct group by",
+    ds => ds.groupByKey(_._1).aggregateValue(countDistinct(_._2)).pairs
+  )
+  test[Pair, Long]("countDistinct struct", ds => ds.groupByKey(_ => 1).aggregateValue(countDistinct).values)
+  test[(Pair, Pair), (key: TinyByte, d1: Long, d2: Long)](
+    "countDistinct struct multiple",
+    ds => ds.groupByKey(_._1._1).aggregate(r => (d1 = countDistinct(r._1), d2 = countDistinct(r._2)))
+  )
+  test[(Pair, Pair), (key: TinyByte, d1: Long, d2: Long, tot: Long)](
+    "countDistinct struct multiple and supported",
+    ds =>
+      ds.groupByKey(_._1._1)
+        .aggregate(r => (d1 = countDistinct(r._1), d2 = countDistinct(r._2), tot = count(r)))
+  )
+  test[(Pair, Pair), Option[(d1: Long, d2: Long, tot: Long)]](
+    "countDistinct struct multiple and supported ungrouped",
+    ds => ds.aggregate(r => (d1 = countDistinct(r._1), d2 = countDistinct(r._2), tot = count(r)))
+  )
+  test[Pair, Option[Long]]("countDistinct struct ungrouped", ds => ds.aggregate(countDistinct))
+  test[Seq[Int], Long](
+    "countDistinct array",
+    ds => ds.groupByKey(_ => 1).aggregateValue(countDistinct).values
   )
   test[(TinyByte, Option[Int]), Long](
     "countSome expr",
@@ -328,5 +375,25 @@ trait DatasetAggregatesSuite extends DatasetSuite {
   test[M1, (Long, Int)](
     "explode after aggregate",
     ds => ds.groupByKey(_.d).aggregateValue(min(_.a)).pairs.select(explode(_._1), _._2)
+  )
+
+  test[M1, (Int, Long)](
+    "aggregate after explode",
+    ds => ds.select(_.a, explode(_.d)).groupByKey(_._1).aggregateValue(min(_._2)).pairs
+  )
+
+  test[M1, (Int, Seq[Long])](
+    "aggregate after select",
+    ds => ds.select(_.a, _.d).groupByKey(_._1).aggregateValue(concat(_._2)).pairs
+  )
+
+  test[M1, (String, Int)](
+    "where after aggregate",
+    ds => ds.groupByKey(_.b).aggregateValue(min(_.a)).pairs.where(_._2 < 10)
+  )
+
+  test[M1, Long](
+    "select after where after aggregate",
+    ds => ds.groupByKey(_.d).aggregateValue(min(_.a)).values.where(_ > 0).select(x => x.cast[Long] + 1L)
   )
 }

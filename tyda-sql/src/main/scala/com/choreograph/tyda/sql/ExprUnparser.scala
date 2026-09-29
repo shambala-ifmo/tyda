@@ -23,7 +23,6 @@ import com.choreograph.tyda.TreeApi.Continue
 import com.choreograph.tyda.rewrite.ArrayCodec
 import com.choreograph.tyda.rewrite.CollectionOrNullableCollectionCodec
 import com.choreograph.tyda.rewrite.IsNone
-import com.choreograph.tyda.rewrite.MapOption
 import com.choreograph.tyda.rewrite.NotNullNonEmptyDummyLiteral
 import com.choreograph.tyda.rewrite.Nullable
 import com.choreograph.tyda.rewrite.PrimitiveAggregateAsFold
@@ -58,21 +57,6 @@ private def simplifyAndToSqlExpr(expr: ExprNode[?] | ExplodeExpr[?], args: Unpar
   exprToSqlExpr(simplified, args)
 }
 
-/* These rules are to generate simpler SQL for outer joins where we do extra handling to make sure we get
- * correct nullability. Hopefully this should be replaced by some more general handling around MapOption and
- * null intolerant expressions. */
-private object OuterJoinRules {
-  def unapply[U](expr: ExprNode[U]): Option[ExprNode[U]] =
-    expr match {
-
-      // This is a _.map(identity), so we can just drop it entirely
-      // TYPE SAFETY: arg has the same type as body
-      case Nullable(MapOption(arg, bodyArg)) if bodyArg == arg => Some(arg.expr.asInstanceOf[ExprNode[U]])
-
-      case _ => None
-    }
-}
-
 private def simplifySelects[From, To](
     compiled: CompiledAggregateExpr[From, To]
 ): CompiledAggregateExpr[From, To] = compiled.copy(expr = simplifySelects(compiled.expr))
@@ -84,7 +68,6 @@ private def simplifySelects[T](expr: ExprNode[T]): ExprNode[T] =
   expr.transformUp([t] =>
     (n: ExprNode[t]) =>
       n match {
-        case OuterJoinRules(opt) => Continue(opt)
         case SimplifySelects(simplified) => Continue(simplified)
         case ToFromRepr(value) => Continue(value)
         case other => Continue(other)
@@ -644,8 +627,13 @@ private def cast(expr: SqlExpr, to: Codec[?], dialect: SqlDialect): SqlExpr =
   SqlExpr.Cast(expr, ToDdl.toDdlType(to, dialect.ddl))
 
 private def tryCast(expr: SqlExpr, from: Codec[?], to: Codec[?], dialect: SqlDialect): SqlExpr =
+  val preRounded = (from, to) match {
+    case (Codec.Decimal(_, _), Codec.Long) =>
+      SqlExpr.Function("round", Seq(expr, literalToSqlExpr(0, Codec.Int, dialect)))
+    case _ => expr
+  }
   SqlExpr
-    .Cast(dialect.tryCast, expr, ToDdl.toDdlType(to, dialect.ddl))
+    .Cast(dialect.tryCast, preRounded, ToDdl.toDdlType(to, dialect.ddl))
     .pipe(addControlCharCheckIfNeeded(expr, _, from, dialect))
     .pipe(addIntRangeCheckIfNeeded(_, to, dialect))
     .pipe(addDecimalRangeAndRoundingIfNeeded(_, to, dialect))
@@ -911,6 +899,7 @@ private def primitiveAggregate[T: Codec](
     Right(SqlExpr.Function(name, Seq(SqlExpr.FieldAccess(arg, "_1"), SqlExpr.FieldAccess(arg, "_2"))))
   agg match {
     case PrimitiveAggregate.Count() => simple("count")
+    case PrimitiveAggregate.CountDistinct() => Right(SqlExpr.Function("count", Seq(arg), distinct = true))
     case PrimitiveAggregate.BoolAnd() => simple(dialect.boolAndFunction)
     case PrimitiveAggregate.BoolOr() => simple(dialect.boolOrFunction)
     case agg @ (PrimitiveAggregate.Min(_)) if isFloatingPoint(Codec[T]) =>

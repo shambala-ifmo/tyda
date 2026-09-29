@@ -6,10 +6,6 @@ SELECT CASE WHEN (count(1) <> 0) THEN min(t0._2) END AS value FROM (SELECT table
 SELECT B'\x00\xca\xfe\xba\xbe' AS value
 ------ end
 
------- Test: distinct before select
-SELECT t0._1 AS value FROM (SELECT DISTINCT table1.a AS _1, table1.b AS _2 FROM table1) AS t0
------- end
-
 ------ Test: empty collection
 SELECT t0.a AS a, t0.b AS b, t0.c AS c, t0.d AS d FROM (SELECT CAST(0 AS INT) AS a, '' AS b, FALSE AS c, [CAST(0.0 AS FLOAT64)] AS d) AS t0 WHERE FALSE
 ------ end
@@ -46,10 +42,6 @@ SELECT t0.value AS _1, t1.value AS _2 FROM (SELECT struct(table1.a AS a, table1.
 SELECT count(CASE WHEN (table4.a IS NOT NULL) THEN CAST(1 AS INT) END) AS value FROM table4 GROUP BY CAST(NULL AS INT)
 ------ end
 
------- Test: grouped aggregation + filter
-SELECT table1.b AS _1, min(table1.a) AS _2 FROM table1 GROUP BY table1.b HAVING (min(table1.a) < CAST(10 AS INT))
------- end
-
 ------ Test: groupped aggregate after grouped aggregate
 SELECT min(t0._1) AS value FROM (SELECT table1.b AS _1, min(table1.a) AS _2 FROM table1 GROUP BY table1.b) AS t0 GROUP BY t0._2
 ------ end
@@ -78,10 +70,6 @@ SELECT table1.a AS _1, t0.value AS _2 FROM table1 LEFT JOIN (SELECT table2.a AS 
 SELECT table1.a AS _1, t0.value AS _2 FROM table1 LEFT JOIN (SELECT struct(table2.a AS a, table2.b AS b, table2.c AS c, table2.d AS d) AS value FROM table2) AS t0 ON (table1.a = t0.value.a)
 ------ end
 
------- Test: literal enum
-SELECT ((TRUE AND (t0._1.discriminant = 'c')) AND (t0._1.a IS NULL)) AS value FROM (SELECT struct('a' AS discriminant, struct(CAST(1 AS INT) AS a) AS a) AS _1) AS t0
------- end
-
 ------ Test: literal enum as string
 SELECT (t0.value = 'second') AS value FROM (SELECT 'first' AS value) AS t0
 ------ end
@@ -100,10 +88,6 @@ SELECT struct(table1.a AS a, table1.b AS b, table1.c AS c, table1.d AS d) AS val
 
 ------ Test: make struct
 SELECT struct(table1.a AS _1, table1.b AS _2, table1.c AS _3) AS value FROM table1
------- end
-
------- Test: multiple explodes in separate selects
-SELECT t0 AS _1, t1 AS _2 FROM table1, unnest(table1.d) AS t0, unnest(table1.d) AS t1
 ------ end
 
 ------ Test: multiple joins
