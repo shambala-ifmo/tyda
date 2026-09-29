@@ -241,6 +241,8 @@ private object ExprNode extends ExprApi[ExprNode] {
             fields.foldLeft(literal)(Seq.empty[ExprNode[?]])([s] => (acc, f, e) => acc :+ create(e, f.codec))
           ExprNode.makeProductUnsafe(values, codec)
 
+        case arr @ Codec.Array(_, _) => ExprNode.FromRepr(create(arr.inj(literal), arr.to), arr)
+
         case injectionCodec @ Codec.FromInjection(inj, codec) =>
           ExprNode.FromRepr(create(inj(literal), codec), injectionCodec)
       }

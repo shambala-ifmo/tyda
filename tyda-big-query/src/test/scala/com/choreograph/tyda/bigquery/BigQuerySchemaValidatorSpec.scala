@@ -66,6 +66,16 @@ class BigQuerySchemaValidatorSpec extends AnyFunSuite {
         .build()
     )
   )
+  checkNoErrors(
+    "required array",
+    Codec[Array[Int]],
+    FieldList.of(
+      BigQueryField
+        .newBuilder("value", StandardSQLTypeName.INT64)
+        .setMode(BigQueryField.Mode.REPEATED)
+        .build()
+    )
+  )
   checkExpectedErrors(
     "float instead of int",
     Codec[Int],

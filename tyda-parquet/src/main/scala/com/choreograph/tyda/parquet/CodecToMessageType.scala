@@ -58,6 +58,7 @@ object CodecToMessageType {
           .addField(convert(inner, Repetition.OPTIONAL, "value"))
           .named(name)
       case Codec.Option(inner) => convert(inner, Repetition.OPTIONAL, name)
+      case arr @ Codec.Array(_, _) => convert(arr.to, repitition, name)
       case Codec.FromInjection(_, inner) => convert(inner, repitition, name)
       case Codec.Seq(element) =>
         Types.list(repitition).element(convert(element, Repetition.REQUIRED, "element")).named(name)

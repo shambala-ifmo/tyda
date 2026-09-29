@@ -29,6 +29,7 @@ private object CodecToCatalystType {
       case opt: Codec.Option[?] => catalystType(opt.element)
       case Codec.Product(_, _, Some(_)) => StructType(Seq(StructField(Forbidden.column, NullType)))
       case prod: Codec.Product[T] => catalystStructType(prod)
+      case arr: Codec.Array[?] => ArrayType(catalystType(arr.element))
       case Codec.FromInjection(_, to) => catalystType(to)
     }
 
@@ -46,7 +47,7 @@ private object CodecToCatalystType {
   private[spark] def nullable[T](codec: Codec[T]): Boolean =
     codec match {
       case Codec.String | Codec.Bytes | Codec.Product(_, _, _) | Codec.Seq(_) | Codec.Option(_) |
-          Codec.Map(_, _) => true
+          Codec.Map(_, _) | Codec.Array(_, _) => true
       case _: Codec.Primitive[?] | Codec.Sum(_, _) => false
       case Codec.FromInjection(_, to) => nullable(to)
     }

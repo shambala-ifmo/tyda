@@ -87,6 +87,9 @@ private object Writer {
       case Codec.Option(element) =>
         val elementWriter = impl(element)
         (consumer, value) => value.foreach(elementWriter(consumer, _))
+      case arr @ Codec.Array(_, _) =>
+        val innerWriter = impl(arr.to)
+        (consumer, value) => innerWriter(consumer, arr.inj(value))
       case Codec.FromInjection(inj, inner) =>
         val innerWriter = impl(inner)
         (consumer, value) => innerWriter(consumer, inj(value))

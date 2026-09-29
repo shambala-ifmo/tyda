@@ -738,6 +738,7 @@ private def fromJson[T](
       case Codec.Map(given Codec[k], given Codec[v]) => for {
           (mapAsArray, isValid) <- go(json, Codec[Seq[(key: k, value: v)]], path, nullable)
         } yield (makeMap(mapAsArray, Codec[k], Codec[v], dialect), isValid)
+      case arr @ Codec.Array(_, _) => go(json, arr.to, path, nullable)
       case Codec.FromInjection(_, to) => go(json, to, path, nullable)
     }
   for {

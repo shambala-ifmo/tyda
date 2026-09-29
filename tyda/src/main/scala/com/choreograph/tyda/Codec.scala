@@ -112,6 +112,18 @@ object Codec {
     def invert(to: scala.Seq[T]): C = factory.fromSpecific(to)
   }
 
+  private[tyda] final case class Array[T](classTag: ClassTag[scala.Array[T]], element: Codec[T])
+      extends FromInjection[scala.Array[T], scala.Seq[T]] {
+    def to: Codec[scala.Seq[T]] = Codec.Seq(element)
+    def inj: Injection[scala.Array[T], scala.Seq[T]] = ArrayInjection(element.classTag)
+  }
+
+  private final case class ArrayInjection[T](elementClassTag: ClassTag[T])
+      extends Injection[scala.Array[T], scala.Seq[T]] {
+    def apply(from: scala.Array[T]): scala.Seq[T] = from.toSeq
+    def invert(to: scala.Seq[T]): scala.Array[T] = to.toArray[T](using elementClassTag)
+  }
+
   private[tyda] final case class Map[K, V](key: Codec[K], value: Codec[V]) extends Codec[Predef.Map[K, V]] {
     def classTag: ClassTag[Predef.Map[K, V]] = summon
   }
@@ -181,7 +193,7 @@ object Codec {
       val ordinalToDiscriminant = variantNames.toArray
       new SumAsReprInjection[T, Repr] {
         def apply(in: T): Repr = {
-          val values = Array.fill[Any](reprSize)(None)
+          val values = scala.Array.fill[Any](reprSize)(None)
           val ordinal = s.ordinal(in)
           values(0) = ordinalToDiscriminant(ordinal)
           if (ordinalToSingleton(ordinal).isEmpty) values(ordinalToIndex(ordinal)) = Some(in)
@@ -339,6 +351,9 @@ object Codec {
     }
   }
 
+  given array[T](using elementCodec: Codec[T]): Codec[scala.Array[T]] =
+    Codec.Array(elementCodec.classTag.wrap, elementCodec)
+
   given map[K: Codec, V: Codec]: Codec[Predef.Map[K, V]] = Codec.Map(Codec[K], Codec[V])
 
   given option[T: Codec]: Codec[scala.Option[T]] = Option(summon[Codec[T]])
@@ -418,6 +433,7 @@ object Codec {
       case Codec.Option(element) => iterate(element)
       case Codec.Product(_, fields, _) =>
         fields.foldLeft0(Iterator.empty[Codec[?]])([t] => (acc, f) => acc ++ iterate(f.codec))
+      case arr: Codec.Array[?] => iterate(arr.to)
       case Codec.FromInjection(_, to) => iterate(to)
     }
     Iterator(codec) ++ inner

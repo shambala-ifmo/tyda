@@ -53,6 +53,16 @@ object ParquetRoundTripSuite {
 
   given Equality[Float] = equalityFromOrd[Float]
   given Equality[Double] = equalityFromOrd[Double]
+
+  given arrayEqualityFromOrd[T: Ord]: Equality[Array[T]] =
+    new Equality[Array[T]] {
+      override def areEqual(a: Array[T], b: Any): Boolean =
+        b match {
+          case b: Array[T] @unchecked =>
+            a.length == b.length && a.iterator.zip(b.iterator).forall(Ord[T].equiv)
+          case _ => false
+        }
+    }
 }
 
 class ParquetRoundTripSuite extends AnyFunSuite {
@@ -100,6 +110,8 @@ class ParquetRoundTripSuite extends AnyFunSuite {
   testRoundTrip[Option[Option[Int]]]
   testRoundTrip[Tuple1[Option[Option[Int]]]]
   testRoundTrip[Seq[Int]]
+  testRoundTrip[Array[Int]]
+  testRoundTrip[Array[Float]]
   testRoundTrip[Option[Seq[Int]]]
   testRoundTrip[Seq[Seq[Int]]]
   testRoundTrip[Seq[(Int, Option[Int])]]

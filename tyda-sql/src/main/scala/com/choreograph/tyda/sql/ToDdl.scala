@@ -135,6 +135,7 @@ object ToDdl {
 
       case Codec.Product(_, _, _) | Codec.Sum(_, _) => DdlType.Struct(toDdlSchema(codec, dialect))
 
+      case Codec.Array(_, _) => unreachable("Array must be handled in toDdlType")
       case Codec.FromInjection(_, _) => unreachable("FromInjection must be handled in toDdlType")
       case Codec.Option(element) => unreachable("Option must be handled in toDdlType")
     }

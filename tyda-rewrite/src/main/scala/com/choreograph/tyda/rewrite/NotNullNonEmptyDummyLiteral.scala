@@ -37,6 +37,7 @@ object NotNullNonEmptyDummyLiteral {
       case Codec.Seq(element) => ExprNode.MakeSeq(Seq(create(element)), element)
       case codec @ Codec.Product(_, fields, _) =>
         ExprNode.makeProductUnsafe(fields.mapConst[ExprNode[?]]([t] => f => create(f.codec)), codec)
+      case arr @ Codec.Array(_, _) => ExprNode.FromRepr(create(arr.to), arr)
       case inj @ Codec.FromInjection(_, to) => ExprNode.FromRepr(create(to), inj)
     }
 }

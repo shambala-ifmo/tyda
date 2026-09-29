@@ -91,6 +91,8 @@ class CodecToJsoniterSpec extends AnyFunSuite {
   roundTrip[Option[Int]]
   roundTrip[Option[Option[Int]]]
   roundTrip[Seq[Int]]
+  roundTrip[Array[Int]]
+  roundTrip[Array[Float]]
   roundTrip[Seq[SimpleProduct]]
   roundTrip[Map[String, Int]]
   roundTrip[Map[SimpleProduct, SimpleProduct]]

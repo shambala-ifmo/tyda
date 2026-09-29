@@ -65,6 +65,7 @@ object DistributeProductAndSeqEquals extends ExprRule {
             val r = ExprNode.Select(rhs, field.name)
             ExprNode.And(acc, ExprNode.Equals(l, r))
         )
+      case arr @ Codec.Array(_, _) => distribute(ExprNode.ToRepr(lhs, arr), ExprNode.ToRepr(rhs, arr))
       case inj @ Codec.FromInjection(_, _) => distribute(ExprNode.ToRepr(lhs, inj), ExprNode.ToRepr(rhs, inj))
     }
 

@@ -391,5 +391,6 @@ class ToDdlSpec extends AnyFunSuite {
   testSparkDdlType[Option[Option[Int]]]("STRUCT<value INT>")
   testSparkDdlType[Seq[Int]]("ARRAY<INT>")
   testSparkDdlType[Seq[Option[Int]]]("ARRAY<INT>")
+  testSparkDdlType[Array[Int]]("ARRAY<INT>")
   testSparkDdlType[(value: Int)]("STRUCT<value INT NOT NULL>")
 }

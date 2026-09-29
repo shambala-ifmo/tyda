@@ -70,7 +70,8 @@ private object CodecToExpressionEncoder {
       case Codec.DurationMicros => LongType
       case Codec.Date => IntegerType
       case Codec.String | Codec.Seq(_) | Codec.Map(_, _) | Codec.Option(_) | Codec.Decimal(_, _) | Codec
-            .Product(_, _, _) | Codec.FromInjection(_, _) => ObjectType(codec.classTag.runtimeClass)
+            .Product(_, _, _) | Codec.Array(_, _) | Codec.FromInjection(_, _) =>
+        ObjectType(codec.classTag.runtimeClass)
     }
 
   def createSerializer[T](codec: Codec[T]): Expression = {
@@ -108,6 +109,7 @@ private object CodecToExpressionEncoder {
 
       case Codec.Seq(element) => createSerializerForIterable(element, codec.classTag, input)
       case Codec.Iterable(tag, element) => createSerializerForIterable(element, tag, input)
+      case arr: Codec.Array[?] => createSerializerForArray(arr.element, input)
 
       case Codec.Map(key, value) => ExternalMapToCatalyst(
           input,
@@ -175,9 +177,9 @@ private object CodecToExpressionEncoder {
         createSerializer(innerCodec, Invoke(obj, "apply", jvmType(innerCodec), Seq(input)))
     }
 
-  private def createSerializerForIterable[T, C <: Iterable[T]](
+  private def createSerializerForIterable[T](
       element: Codec[T],
-      tag: ClassTag[C],
+      tag: ClassTag[?],
       input: Expression
   ): Expression = {
 
@@ -189,6 +191,20 @@ private object CodecToExpressionEncoder {
       } else { input }
     MapObjects(validateAndSerializeElement(element), asSeq, ObjectType(classOf[AnyRef]))
   }
+
+  /* Based on Spark:
+   * https://github.com/apache/spark/blob/v3.5.4/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/SerializerBuildHelper.scala#L320
+   * for genuinely primitive element types this produces a bulk copy via UnsafeArrayData.fromPrimitiveArray
+   * instead of a per-element MapObjects. */
+  private def createSerializerForArray[T](element: Codec[T], input: Expression): Expression =
+    element match {
+      case Codec.Byte | Codec.Short | Codec.Int | Codec.Long | Codec.Float | Codec.Double | Codec.Boolean =>
+        SerializerBuildHelper.createSerializerForPrimitiveArray(input, catalystType(element))
+      // Unlike genuine Scala collections, a raw Array has no real `toSeq` method to invoke reflectively (it's
+      // only available via an implicit conversion), so we pass it directly to MapObjects, which natively
+      // supports array-typed input data.
+      case _ => MapObjects(validateAndSerializeElement(element), input, ObjectType(classOf[AnyRef]))
+    }
 
   private def createSerializerForStruct(input: Expression, fields: Seq[(String, Expression)]): Expression = {
     val struct = CreateNamedStruct(fields.flatMap { case (name, field) => List(Literal(name), field) })
@@ -272,6 +288,8 @@ private object CodecToExpressionEncoder {
           path,
           walkedTypePath
         )
+
+      case arr: Codec.Array[?] => createDeserializerForArray(arr.element, arr.classTag, path, walkedTypePath)
 
       case map: Codec.Map[?, ?] =>
         val newTypePath = walkedTypePath.recordMap(
@@ -450,6 +468,39 @@ private object CodecToExpressionEncoder {
       )
     }
 
+  }
+
+  /* Based on Spark:
+   * https://github.com/apache/spark/blob/v3.5.4/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/DeserializerBuildHelper.scala#L293-L302,L415-L441
+   * for genuinely primitive element types this produces a bulk copy via ArrayData.toFloatArray/etc. instead
+   * of a per-element UnresolvedMapObjects + Factory.fromSpecific. */
+  private def createDeserializerForArray[T](
+      elementCodec: Codec[T],
+      tag: ClassTag[Array[T]],
+      path: Expression,
+      walkedTypePath: WalkedTypePath
+  ): Expression = {
+    val newTypePath = walkedTypePath.recordArray(elementCodec.classTag.runtimeClass.getName)
+    val mapFunction: Expression => Expression = element =>
+      DeserializerBuildHelper.deserializerForWithNullSafetyAndUpcast(
+        element,
+        catalystType(elementCodec),
+        nullable = nullable(elementCodec),
+        newTypePath,
+        createDeserializer(elementCodec, _, newTypePath, topRow = false)
+      )
+    val arrayData = UnresolvedMapObjects(mapFunction, path)
+    val methodName = elementCodec match {
+      case Codec.Boolean => "toBooleanArray"
+      case Codec.Byte => "toByteArray"
+      case Codec.Short => "toShortArray"
+      case Codec.Int => "toIntArray"
+      case Codec.Long => "toLongArray"
+      case Codec.Float => "toFloatArray"
+      case Codec.Double => "toDoubleArray"
+      case _ => "array"
+    }
+    Invoke(arrayData, methodName, ObjectType(tag.runtimeClass), returnNullable = false)
   }
 
   private def validateAndSerializeElement(codec: Codec[?]): Expression => Expression = { input =>

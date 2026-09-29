@@ -142,6 +142,9 @@ object NumericsReadMode {
         else if rule(value).isDefined then error("map value")
         else None
       case codec @ Codec.Product(_, _, _) => buildFailableProductReadAdapter(codec)([t] => rule(_))
+      case arr @ Codec.Array(_, _) => buildFailableReadAdapterChildren(arr.to)(rule).map(_.map(e =>
+          Expr.lift(ExprNode.FromRepr(Expr.unlift(e), arr))
+        ))
       case codec @ Codec.FromInjection(_, to) => buildFailableReadAdapterChildren(to)(rule).map(_.map(e =>
           Expr.lift(ExprNode.FromRepr(Expr.unlift(e), codec))
         ))

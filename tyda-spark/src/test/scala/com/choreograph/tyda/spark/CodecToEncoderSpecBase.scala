@@ -123,6 +123,7 @@ object CodecToEncoderSpecBase {
   // To prefer equiv from Ord and avoid diverging givens
   given [T: Ord]: Equiv[T] = Ord[T]
   given [K, V]: Equiv[Map[K, V]] = Equiv.universal
+  given [T: Ord]: Equiv[Array[T]] = (a, b) => a.length == b.length && a.iterator.zip(b.iterator).forall(Ord[T].equiv)
 }
 
 trait CodecToEncoderSpecBase extends AnyFunSuite with SharedSparkSession {
@@ -185,6 +186,11 @@ trait CodecToEncoderSpecBase extends AnyFunSuite with SharedSparkSession {
   test[Seq[Duration]]()
   test[ArraySeq[Int]]()
   test[ArraySeq[Person]]()
+  test[Array[Byte]]()
+  test[Array[Int]]()
+  test[Array[Float]]()
+  test[Array[Double]]()
+  test[Array[Person]]()
   test[Map[Int, Int]]()
   test[Map[Person, String]]()
   test[Map[Timestamp, Int]]()
@@ -255,6 +261,8 @@ trait CodecToEncoderSpecBase extends AnyFunSuite with SharedSparkSession {
   schemaTest[Duration](LongType)
   schemaTest[Date](DateType)
   schemaTest[Seq[Int]](ArrayType(IntegerType, false))
+  schemaTest[Array[Int]](ArrayType(IntegerType, false))
+  schemaTest[Array[Float]](ArrayType(FloatType, false))
   schemaTest[Map[Int, Int]](MapType(IntegerType, IntegerType, false))
   schemaTest[Map[Timestamp, Timestamp]](MapType(TimestampType, TimestampType, false))
   schemaTest[Map[Int, Option[Int]]](MapType(IntegerType, IntegerType, true))
@@ -269,6 +277,7 @@ trait CodecToEncoderSpecBase extends AnyFunSuite with SharedSparkSession {
     StructType(Seq(StructField("person", expectedPerson, true), StructField("salary", DoubleType, false)))
   schemaTest[Employee](expectedEmployee)
   schemaTest[Seq[Employee]](ArrayType(expectedEmployee))
+  schemaTest[Array[Person]](ArrayType(expectedPerson))
   schemaTest[Seq[Timestamp]](ArrayType(TimestampType, false))
   schemaTest[Map[Int, Employee]](MapType(IntegerType, expectedEmployee, true))
   schemaTest[Map[Employee, Int]](MapType(expectedEmployee, IntegerType, false))

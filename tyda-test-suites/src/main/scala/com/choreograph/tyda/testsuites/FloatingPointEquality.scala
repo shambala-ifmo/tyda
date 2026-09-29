@@ -60,4 +60,28 @@ object FloatingPointEquality {
           case _ => false
         }
     }
+
+  given arrayFloat: Equality[Array[Float]] =
+    new Equality[Array[Float]] {
+      override def areEqual(a: Array[Float], b: Any): Boolean =
+        b match {
+          case b: Array[?] => a.length == b.length && a.iterator.zip(b.iterator).forall {
+              case (x: Float, y: Float) => float.areEqual(x, y)
+              case _ => false
+            }
+          case _ => false
+        }
+    }
+
+  given arrayDouble: Equality[Array[Double]] =
+    new Equality[Array[Double]] {
+      override def areEqual(a: Array[Double], b: Any): Boolean =
+        b match {
+          case b: Array[?] => a.length == b.length && a.iterator.zip(b.iterator).forall {
+              case (x: Double, y: Double) => double.areEqual(x, y)
+              case _ => false
+            }
+          case _ => false
+        }
+    }
 }

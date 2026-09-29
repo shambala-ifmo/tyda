@@ -66,6 +66,7 @@ object CodecToJsoniter {
           )
           .head
       case Codec.SumAsString(_, singletons) => singletons.head
+      case arr @ Codec.Array(_, _) => arr.inj.invert(getNullValue(using arr.to))
       case Codec.FromInjection(inj, to) => inj.invert(getNullValue(using to))
     }
 
@@ -146,6 +147,7 @@ object CodecToJsoniter {
         // We should probably error on duplicates here
         in => keyValueReader(in).map { case (k, v) => k -> v }.toMap
       case codec @ Codec.Product(_) => productReader(codec)
+      case arr: Codec.Array[?] => reader(arr.to).andThen(arr.inj.invert)
       case Codec.FromInjection(inj, to) => reader(to).andThen(inj.invert)
     }
 
@@ -279,6 +281,9 @@ object CodecToJsoniter {
             }
             .writeObjectEnd()
 
+      case arr: Codec.Array[?] =>
+        val inner = writer(arr.to)
+        (out, value) => inner(out, arr.inj(value))
       case Codec.FromInjection(inj, to) =>
         val inner = writer(to)
         (out, value) => inner(out, inj(value))

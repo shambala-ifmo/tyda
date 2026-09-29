@@ -221,6 +221,9 @@ object DatasetOnIterator {
         given Ord[e] = ordFromCodec(element)
         Ord.sum[Option[e]]
       case Codec.Product(_, fields, _) => Ord.product(using fields.mapK([t] => f => ordFromCodec(f.codec)))
+      case arr @ Codec.Array(_, _) =>
+        val ordering = Ordering.by(arr.inj(_))(using ordFromCodec(arr.to))
+        Ord.fromOrdering(using ordering)
       case Codec.FromInjection(inj, to) =>
         val ordering = Ordering.by(inj(_))(using ordFromCodec(to))
         Ord.fromOrdering(using ordering)

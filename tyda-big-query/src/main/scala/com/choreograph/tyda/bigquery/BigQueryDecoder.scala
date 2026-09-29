@@ -103,6 +103,7 @@ private def fieldDecoder[T](codec: Codec[T], field: Field): FieldValue => T = {
     case codec @ (Codec.Product(_, _, _) | Codec.Sum(_, _)) =>
       val decoder = createDecoder(codec, field.getSubFields)
       fv => decoder(fv.getRecordValue())
+    case arr @ Codec.Array(_, _) => fieldDecoder(arr.to, field).andThen(arr.inj.invert)
     case Codec.FromInjection(inj, inner) => fieldDecoder(inner, field).andThen(inj.invert)
   }
 }

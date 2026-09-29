@@ -51,6 +51,7 @@ object CodecToJsonSchema {
       case codec @ Codec.Product(_, _, _) => productSchema(codec)
       case sum @ Codec.Sum(_, _) => sumSchema(sum)
       case sum: Codec.SumAsString[?] => sumAsStringSchema(sum)
+      case arr @ Codec.Array(_, _) => typeSchema(arr.to)
       case Codec.FromInjection(_, to) => typeSchema(to)
     }
 

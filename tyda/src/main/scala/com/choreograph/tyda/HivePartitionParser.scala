@@ -24,6 +24,9 @@ private[tyda] object HivePartitionParser {
             case Right(partition) => partition
             case Left(error) => throw new RuntimeException(error)
           }
+      case arr @ Codec.Array(_, _) =>
+        val toParser = makeParser(using arr.to)
+        path => arr.inj.invert(toParser(path))
       case Codec.FromInjection(inj, to) =>
         val toParser = makeParser(using to)
         path => inj.invert(toParser(path))
@@ -47,6 +50,7 @@ private[tyda] object HivePartitionParser {
       case Codec.String => PartitionEncoding.decode(_)
       case Codec.Date => str =>
           Date.fromIsoString(str).getOrElse(throw new RuntimeException(s"Unable to decode $str as a Date"))
+      case arr @ Codec.Array(_, _) => fieldParser(arr.to).andThen(arr.inj.invert)
       case Codec.FromInjection(inj, to) => fieldParser(to).andThen(inj.invert)
       case Codec.Bytes | Codec.TimestampMicros | Codec.DurationMicros | Codec.Seq(_) | Codec.Map(_, _) | Codec
             .Option(_) | Codec.Decimal(_, _) | Codec.Product(_, _, _) | Codec.FromInjection(_, _) =>

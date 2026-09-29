@@ -121,6 +121,9 @@ object Arbitrary {
   given iterable[T: Arbitrary, C <: Iterable[T]](using factory: Factory[T, C]): Arbitrary[C] =
     IterableArbitrary[T, C](Arbitrary[T], 5, factory)
 
+  given array[T: Arbitrary: ClassTag]: Arbitrary[Array[T]] =
+    IterableArbitrary[T, Array[T]](Arbitrary[T], 5, summon)
+
   given sum[T](using inst: K0.CoproductInstances[Arbitrary, T]): Arbitrary[T] = SumArbitrary(inst)
 
   given product[T](using inst: K0.ProductInstances[Arbitrary, T]): Arbitrary[T] = ProductArbitrary(inst)

@@ -200,6 +200,9 @@ object CodecToEncoder {
           codecProvider = () => SumToRowEncoder[T](sum),
           nullable = false
         )
+      case arr: Codec.Array[?] =>
+        AgnosticEncoders.ArrayEncoder(toAgnostic(arr.element), containsNull = nullable(arr.element))
+
       case Codec.FromInjection(inj, to) => TransformingEncoder(
           clsTag = codec.classTag,
           transformed = toAgnostic(to),

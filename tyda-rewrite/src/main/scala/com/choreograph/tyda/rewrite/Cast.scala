@@ -62,6 +62,9 @@ private[tyda] object Cast {
         else if visitor(value).isDefined then error("map value")
         else None
       case codec @ Codec.Product(_, _, _) => product(codec, visitor)
+      case codec @ Codec.Array(_, _) => visitor(codec.to).map(cast =>
+          Cast((expr: Expr[T]) => cast(Expr.lift(ExprNode.ToRepr(Expr.unlift(expr), codec))))
+        )
       case codec @ Codec.FromInjection(_, to) => visitor(to).map(cast =>
           Cast((expr: Expr[T]) => cast(Expr.lift(ExprNode.ToRepr(Expr.unlift(expr), codec))))
         )

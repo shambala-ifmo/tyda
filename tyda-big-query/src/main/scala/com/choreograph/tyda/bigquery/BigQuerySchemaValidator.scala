@@ -77,6 +77,7 @@ private def validateField[T](
       validateField(Codec[Seq[(key: k, value: v)]], field, path, nullable, repeated)
     case Codec.Product(_, fields, _) => checkType(StandardSQLTypeName.STRUCT) ++ checkMode() ++
         validateProduct(fields, field.getSubFields(), path)
+    case arr @ Codec.Array(_, _) => validateField(arr.to, field, path, nullable, repeated)
     case Codec.FromInjection(_, inner) => validateField(inner, field, path, nullable, repeated)
   }
 }
