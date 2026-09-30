@@ -44,6 +44,13 @@ private sealed trait ExprNode[T] extends Selectable {
     ExprNode.api.collect(this, [t] => lifted(_))
   }
 
+  /** Count the number of nodes in the expression tree that satisfy the
+    * predicate `f`.
+    *
+    * For details see [[com.choreograph.tyda.TreeApi.count]]
+    */
+  def count(f: ExprNode[?] => Boolean): Long = ExprNode.api.count(this, [t] => f(_))
+
   /** Transform the expression tree from the bottom up.
     *
     * For details see [[com.choreograph.tyda.TreeApi.transformUp]]
@@ -125,6 +132,10 @@ private object ExprNode extends ExprApi[ExprNode] {
   def makeTuple[T <: Tuple](values: Tuple.Map[T, ExprNode]): ExprNode[T] =
     new MakeProduct[T, T](values, Codec.tuple(tupleInstances(values).mapK([t] => _.codec)))
 
+  def makeTupleUnsafe[T <: Tuple](values: Seq[ExprNode[?]]): ExprNode[T] =
+    // TYPE SAFETY: All elements in values is of type ExprNode
+    makeTuple(Tuple.fromArray(values.toArray).asInstanceOf)
+
   def makeNamedTuple[NT <: AnyNamedTuple](values: NamedTuple.Map[NT, ExprNode])(using
       StringLiterals[NamedTuple.Names[NT]]
   ): ExprNode[NT] = new MakeProduct(values, Codec.namedTuple(tupleInstances(values).mapK([t] => _.codec)))
@@ -137,6 +148,12 @@ private object ExprNode extends ExprApi[ExprNode] {
   def makeProductUnsafe[P](exprs: Seq[ExprNode[?]], codec: Codec.Product[P]): ExprNode[P] =
     // TYPE SAFETY: All the values in exprs are of type ExprNode[?]
     new MakeProduct(Tuple.fromArray(exprs.toArray).asInstanceOf, codec)
+
+  def makeNamedTupleUnsafe(exprs: Seq[ExprNode[?]], names: Seq[String]): ExprNode[? <: AnyNamedTuple] = {
+    assert(exprs.size == names.size)
+    val fields = names.zip(exprs.map(_.codec)).map(Field.apply(_, _))
+    makeProductUnsafe(exprs, Codec.unsafeNamedTuple(fields))
+  }
 
   final case class Range(start: ExprNode[Int], end: ExprNode[Int]) extends ExprNode[Seq[Int]] {
     override def codec: Codec[Seq[Int]] = Codec[Seq[Int]]

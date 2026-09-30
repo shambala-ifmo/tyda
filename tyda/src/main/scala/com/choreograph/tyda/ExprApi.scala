@@ -63,10 +63,7 @@ trait ExprApi[Expr[T]] {
       * At runtime, the default expressions is evaluated lazily, so that this
       * function can be used for control flow involving raiseError.
       */
-    def getOrElse[I: AsExpr.Of[T]](default: I): Expr[T] = {
-      val coalesced = ExprNode.Coalesce(Seq(unlift(opt), ExprNode.MakeSome(unlift(AsExpr(default)))))
-      lift(ExprNode.KnownNotNull(coalesced))
-    }
+    def getOrElse[I: AsExpr.Of[T]](default: I): Expr[T] = orElse(some(default)).get
 
     /** If this option is Some then the value is returned otherwise raises an
       * error with the given message.
@@ -86,11 +83,11 @@ trait ExprApi[Expr[T]] {
     @targetName("optionMap")
     def map[U, I: AsExpr.Of[U]](f: Expr[T] => I): Expr[Option[U]] = when(!isEmpty, f(get))
 
-    /** Returns this Option if the predicate returns true or the option is
-      * empty, otherwise returns None.
+    /** Returns this Option if it is nonempty and applying the predicate `p` to
+      * this Option's value returns true. Otherwise, return None.
       */
     @targetName("optionFilter")
-    def filter(p: Expr[T] => Expr[Boolean]): Expr[Option[T]] = when(isEmpty || p(get), get)
+    def filter(p: Expr[T] => Expr[Boolean]): Expr[Option[T]] = when(!isEmpty && p(get), get)
 
     /** Apply the Expr function returning an Option to the contained value if
       * the option is Some otherwise returns None.
@@ -98,7 +95,7 @@ trait ExprApi[Expr[T]] {
     def flatMap[U, I: AsExpr.Of[Option[U]]](f: Expr[T] => I): Expr[Option[U]] = {
       val mapped = AsExpr(f(get))
       given Codec[U] = mapped.elementCodec
-      ternary(isEmpty, lit[Option[U]](None), mapped)
+      ternary(!isEmpty, mapped, none)
     }
 
     /** Combine two options into one option of a tuple. If either option is None
@@ -971,6 +968,53 @@ trait ExprApi[Expr[T]] {
 
     def when[R, I: AsExpr.Of[R]](cond: Expr[Boolean], thenExpr: I): CasesBuilder[R] =
       new CasesBuilder(head = ExprNode.WhenThen(unlift(cond), unlift(AsExpr(thenExpr))), tail = Seq.empty)
+  }
+
+  // We need to eagerly simplify selects on products to avoid exponential growth when recursing over a tuple.
+  private def tupleSelect[T <: Tuple](node: ExprNode[T]): Int => ExprNode[?] =
+    node match {
+      case ExprNode.MakeProduct(elements, _) =>
+        // TYPE SAFETY: elements is Tuple.Map[?, ExprNode] so all elements are of type ExprNode[?]
+        i => elements.apply(i).asInstanceOf[ExprNode[?]]
+      case other => i => ExprNode.Select(other, s"_${i + 1}")
+    }
+
+  extension [T <: Tuple, H](e: Expr[H *: T]) {
+
+    /** Returns the head element of this non-empty tuple expression.
+      */
+    def head: Expr[H] =
+      // TYPE SAFETY: The types being H *: T proves that head is H
+      lift(tupleSelect(unlift(e))(0).asInstanceOf[ExprNode[H]])
+
+    /** Returns a tuple expression containing all elements after the first one
+      * of this non-empty tuple expression.
+      */
+    def tail: Expr[T] =
+      val node = unlift(e)
+      node.codec match {
+        case Codec.Product(_, fields, _) =>
+          val select = tupleSelect(node)
+          val elements = (1 until fields.arity).map(select)
+          lift(ExprNode.makeTupleUnsafe(elements))
+        case unsupported => unreachable(s"Tuple must be encoded using Product, but found ${unsupported}")
+      }
+  }
+
+  extension [H](head: Expr[H]) {
+
+    /** Prepend an element expression to this tuple expression.
+      */
+    infix def *:[T <: Tuple](tail: Expr[T]): Expr[H *: T] =
+      val tailNode = unlift(tail)
+      val select = tupleSelect(tailNode)
+      tailNode.codec match {
+        case Codec.Product(_, fields, _) =>
+          val tailNodes = (0 until fields.arity).map(select)
+          val elements = unlift(head) +: tailNodes
+          lift(ExprNode.makeTupleUnsafe(elements))
+        case unsupported => unreachable(s"Tuple must be encoded using Product, but found ${unsupported}")
+      }
   }
 
   /** Construct an Expr[To] where To is a product with named fields or a named

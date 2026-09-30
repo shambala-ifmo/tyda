@@ -2,12 +2,20 @@
 SELECT table1.a AS a, table1.b AS b FROM table1
 ------ end
 
+------ Test: creation of enums
+SELECT t0.discriminant AS discriminant, t0.c AS c, t0.d AS d FROM VALUES ('a', CAST(NULL AS STRUCT<i INT NOT NULL>), CAST(NULL AS STRUCT<i INT NOT NULL>)), ('b', CAST(NULL AS STRUCT<i INT NOT NULL>), CAST(NULL AS STRUCT<i INT NOT NULL>)), ('c', named_struct('i', CAST(1 AS INT)), CAST(NULL AS STRUCT<i INT NOT NULL>)), ('d', CAST(NULL AS STRUCT<i INT NOT NULL>), named_struct('i', CAST(2 AS INT))) AS t0(discriminant, c, d)
+------ end
+
 ------ Test: distinct List
 SELECT DISTINCT table1.value AS value FROM table1
 ------ end
 
 ------ Test: distinct Option
 SELECT DISTINCT table1.value AS value FROM table1
+------ end
+
+------ Test: distinct before select
+SELECT t0.a AS value FROM (SELECT DISTINCT table1.a AS a, table1.b AS b FROM table1) AS t0
 ------ end
 
 ------ Test: distinct primitive
@@ -54,6 +62,18 @@ SELECT explode(table1._1) AS _1, explode(table1._2) AS _2 FROM table1
 SELECT explode(t0.value) AS value FROM (SELECT explode(table1.value) AS value FROM table1) AS t0
 ------ end
 
+------ Test: explode to complex enum
+SELECT t0._1.discriminant AS discriminant, t0._1.a AS a, t0._1.b AS b FROM (SELECT explode(table1.value) AS _1 FROM table1) AS t0
+------ end
+
+------ Test: explode to product
+SELECT t0._1.a AS a, t0._1.b AS b FROM (SELECT explode(table1.value) AS _1 FROM table1) AS t0
+------ end
+
+------ Test: explode to simple enum
+SELECT t0._1.discriminant AS discriminant FROM (SELECT explode(table1.value) AS _1 FROM table1) AS t0
+------ end
+
 ------ Test: limit after aggregate
 SELECT table1._1 AS key, sum(table1._2) AS value FROM table1 GROUP BY table1._1 LIMIT 5
 ------ end
@@ -98,6 +118,10 @@ SELECT t0.value AS _1, table2.value AS _2 FROM (SELECT table1.value AS value FRO
 SELECT table1.value AS value FROM table1 LIMIT 0
 ------ end
 
+------ Test: multiple explodes in separate selects
+SELECT t0._2 AS _1, explode(t0._1.d) AS _2 FROM (SELECT named_struct('a', table1.a, 'b', table1.b, 'c', table1.c, 'd', table1.d) AS _1, explode(table1.d) AS _2 FROM table1) AS t0
+------ end
+
 ------ Test: nested option upcast
 SELECT CASE WHEN (table1.value IS NOT NULL) THEN array(table1.value.value) ELSE CAST(array() AS ARRAY<INT>) END AS value FROM table1
 ------ end
@@ -134,8 +158,16 @@ SELECT explode(table1._1) AS _1, explode(table1._2) AS _2, explode(table1._3) AS
 SELECT table1.value AS _1, CAST(1 AS INT) AS _2 FROM table1
 ------ end
 
+------ Test: select after explode to product
+SELECT t0._1.a AS value FROM (SELECT explode(table1.value) AS _1 FROM table1) AS t0
+------ end
+
 ------ Test: select complex
 SELECT map_from_entries(CAST(array() AS ARRAY<STRUCT<_1 INT NOT NULL,_2 INT NOT NULL>>)) AS value FROM table1
+------ end
+
+------ Test: select different after explode to product
+SELECT t0._1._1 AS value FROM (SELECT table1._1 AS _1, explode(table1._2) AS _2 FROM table1) AS t0
 ------ end
 
 ------ Test: select enum
@@ -172,6 +204,14 @@ SELECT CAST(1 AS INT) AS value FROM table1
 
 ------ Test: where
 SELECT table1.value AS value FROM table1 WHERE table1.value
+------ end
+
+------ Test: where after explode
+SELECT t0._1 AS _1, t0._2 AS _2, t0._3 AS _3 FROM (SELECT explode(table1._2) AS _1, explode(table1._2) AS _2, table1._1 AS _3 FROM table1) AS t0 WHERE (t0._1 < CAST(0 AS INT))
+------ end
+
+------ Test: where before explode
+SELECT explode(table1._2) AS _1, explode(table1._2) AS _2, table1._1 AS _3 FROM table1 WHERE (size(table1._2) < CAST(2 AS INT))
 ------ end
 
 ------ Test: where literal
