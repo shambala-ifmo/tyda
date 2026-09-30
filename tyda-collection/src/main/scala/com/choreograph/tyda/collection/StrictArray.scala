@@ -10,6 +10,7 @@ import com.choreograph.tyda.Ord
 import com.choreograph.tyda.Arbitrary
 import com.choreograph.tyda.Codec
 import com.choreograph.tyda.Injection
+import com.choreograph.tyda.Groupable
 
 final class StrictArray[T] private (private val elems: scala.Array[T])
     extends AbstractSeq[T],
@@ -49,5 +50,7 @@ object StrictArray {
   
   given codec[T](using elementCodec: Codec[T]): Codec[StrictArray[T]] =
     Codec.fromInjection(new StrictArrayInjection, Codec.array[T])
+
+  given groupable[T: Groupable]: Groupable[StrictArray[T]] = Groupable.derived 
 
 }
