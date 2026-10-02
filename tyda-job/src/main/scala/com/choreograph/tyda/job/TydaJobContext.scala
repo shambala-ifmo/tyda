@@ -11,17 +11,32 @@ import com.choreograph.tyda.table.Partitioner
 import com.choreograph.tyda.table.Sink
 import com.choreograph.tyda.table.Source
 
-class TydaJobContext(private val runner: Runner) {
+class TydaJobContext(
+    private val runner: Runner,
+    private val externalWriter: ExternalWriter = ExternalWriter.unimplemented,
+    private val externalReader: ExternalReader = ExternalReader.unimplemented
+) {
   import TydaJobContext.Write
 
   def this(args: TydaJobArgs, name: String) = this(RunnerArgs.createRunner(args.runner, name))
 
-  private val writes = mutable.Queue.empty[Write[?, ?]]
+  def this(args: TydaJobArgs, name: String, externalWriter: ExternalWriter, externalReader: ExternalReader) =
+    this(RunnerArgs.createRunner(args.runner, name), externalWriter, externalReader)
 
-  private[tyda] def usedSinks: Seq[Sink[?, ?]] = writes.iterator.map(_.sink).toSeq
+  private val writes = mutable.Queue.empty[Write[?, ?]]
+  private val externalWrites = mutable.Queue.empty[(Dataset[String], Sink.External[?, ?])]
+
+  private[tyda] def usedSinks: Seq[Sink[?, ?]] =
+    writes.iterator.map(_.sink).toSeq ++ externalWrites.iterator.map(_._2).toSeq
 
   def write[T, P <: Partitioner](ds: Dataset[T], sink: Sink[T, P], partitioner: P): Unit =
     writes.enqueue(Write(ds, sink, partitioner))
+
+  def writeExternal(ds: Dataset[String], sink: Sink.External[?, ?]): Unit =
+    externalWrites.enqueue((ds, sink))
+
+  def readExternal(source: Source.External[?, ?]): Dataset[String] =
+    Dataset.from(externalReader.read(source.uri))
 
   private def toSinkSource[T](
       checkpoint: CheckpointArg,
@@ -53,15 +68,18 @@ class TydaJobContext(private val runner: Runner) {
         case Sink.Path(basePath, format) =>
           val write = dataset.writeToPath(partitioner.path(basePath), format)
           runner.execute(write)
-        case Sink.GraphDb(_, _) =>
+        case Sink.External(_) =>
           throw new UnsupportedOperationException(
-            "GraphDb sinks are not writable through Tyda's Dataset API; write to GraphDB directly"
+            "External sinks are not writable through Tyda's Dataset API; write directly"
           )
         case Sink.Test(verifiers) =>
           val verify = verifiers.getVerifier(partitioner)
           val collected = privateCollect(dataset)
           verify(collected)
       }
+    }
+    externalWrites.foreach { case (dataset, sink) =>
+      privateCollect(dataset).foreach(document => externalWriter.write(sink.uri, document))
     }
 }
 

@@ -6,18 +6,21 @@ class SourceSpec extends AnyFunSuite {
   private final case class Model(f: String)
   private final case class Date(date: Int)
 
-  test("GraphDb source path is a stable graphdb:// identifier") {
-    val source: Source[Model, Partitioner.None] = Source.GraphDb("graphdb.example.com", "my-repo")
+  test("External source path is its uri") {
+    val source: Source[Model, Partitioner.None] =
+      Source.External("graphdb://graphdb.example.com/repositories/my-repo")
     assert(source.path == "graphdb://graphdb.example.com/repositories/my-repo")
   }
 
-  test("GraphDb source can not be read through Tyda's Dataset API") {
-    val source: Source[Model, Partitioner.None] = Source.GraphDb("graphdb.example.com", "my-repo")
+  test("External source can not be read through Tyda's Dataset API") {
+    val source: Source[Model, Partitioner.None] =
+      Source.External("graphdb://graphdb.example.com/repositories/my-repo")
     intercept[UnsupportedOperationException](source.read)
   }
 
-  test("GraphDb source can not be read partitioned through Tyda's Dataset API") {
-    val source: Source[Model, Partitioner.Hive[Date]] = Source.GraphDb("graphdb.example.com", "my-repo")
+  test("External source can not be read partitioned through Tyda's Dataset API") {
+    val source: Source[Model, Partitioner.Hive[Date]] =
+      Source.External("graphdb://graphdb.example.com/repositories/my-repo")
     intercept[UnsupportedOperationException](source.asPartitionDataset(Partitioner.Hive.fromValue(Date(1))))
   }
 }

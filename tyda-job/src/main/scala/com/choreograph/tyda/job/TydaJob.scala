@@ -9,6 +9,7 @@ import com.choreograph.tyda.table.ArgsParser
 import com.choreograph.tyda.table.Partitioner
 import com.choreograph.tyda.table.Partitioner.Creator
 import com.choreograph.tyda.table.Sink
+import com.choreograph.tyda.table.Source
 import com.choreograph.tyda.table.SourceSinkTraversal
 
 final case class TydaJobArgs(runner: RunnerArgs) derives ArgsParser
@@ -35,6 +36,18 @@ abstract class TydaJob[JobArgs](using
    * class */
   def sourceSinkTraversal: SourceSinkTraversal[JobArgs] = traversal
 
+  /** Override to supply a real implementation capable of writing to an
+    * external system (e.g. an http4s-backed client with credentials),
+    * enabling `writeExternal`.
+    */
+  protected def externalWriter: ExternalWriter = ExternalWriter.unimplemented
+
+  /** Override to supply a real implementation capable of reading from an
+    * external system (e.g. an http4s-backed client with credentials),
+    * enabling `readExternal`.
+    */
+  protected def externalReader: ExternalReader = ExternalReader.unimplemented
+
   private val logger = LoggerFactory.getLogger(getClass)
 
   final def main(args: Array[String]): Unit =
@@ -46,7 +59,7 @@ abstract class TydaJob[JobArgs](using
 
     ArgsParser.parse[TydaJobArgs, JobArgs](args.toSeq) match {
       case Right((tydaArgs, jobArgs)) =>
-        val context: TydaJobContext = new TydaJobContext(tydaArgs, getClass.getName)
+        val context: TydaJobContext = new TydaJobContext(tydaArgs, getClass.getName, externalWriter, externalReader)
         run(jobArgs)(using context)
         context.run()
       case Left(error) => throw new IllegalArgumentException(s"Error parsing arguments: ${error.formatted}")
@@ -71,6 +84,18 @@ abstract class TydaJob[JobArgs](using
       * testing.
       */
     def checkpoint(arg: CheckpointArg): Dataset[T] = context.checkpoint(dataset, arg)
+  }
+
+  extension (dataset: Dataset[String])(using context: TydaJobContext) {
+
+    /** Writes each row as a document to an external sink via the configured [[externalWriter]]. */
+    def writeExternal(sink: Sink.External[?, ?]): Unit = context.writeExternal(dataset, sink)
+  }
+
+  extension (source: Source.External[?, ?])(using context: TydaJobContext) {
+
+    /** Reads each document available at the source as a row, via the configured [[externalReader]]. */
+    def readExternal(): Dataset[String] = context.readExternal(source)
   }
 
   /** @param cliArgs

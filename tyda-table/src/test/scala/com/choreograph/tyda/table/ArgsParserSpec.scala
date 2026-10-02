@@ -347,9 +347,9 @@ class ArgsParserSuite extends AnyFunSuite {
     assert(ArgsParser.serialize(expected) == args)
   }
 
-  test("support reading Source.GraphDb") {
-    val args = Seq("--source-host", "graphdb.example.com", "--source-repository-name", "my-repo")
-    val expected = ArgsWithSource(Source.GraphDb("graphdb.example.com", "my-repo"))
+  test("support reading Source.External") {
+    val args = Seq("--source-uri", "graphdb://graphdb.example.com/repositories/my-repo")
+    val expected = ArgsWithSource(Source.External("graphdb://graphdb.example.com/repositories/my-repo"))
     assert(ArgsParser.parse[ArgsWithSource](args) == Right(expected))
     assert(ArgsParser.serialize(expected) == args)
   }
@@ -368,9 +368,9 @@ class ArgsParserSuite extends AnyFunSuite {
     assert(ArgsParser.serialize(expected) == args)
   }
 
-  test("support reading Sink.GraphDb") {
-    val args = Seq("--sink-host", "graphdb.example.com", "--sink-repository-name", "my-repo")
-    val expected = ArgsWithSink(Sink.GraphDb("graphdb.example.com", "my-repo"))
+  test("support reading Sink.External") {
+    val args = Seq("--sink-uri", "graphdb://graphdb.example.com/repositories/my-repo")
+    val expected = ArgsWithSink(Sink.External("graphdb://graphdb.example.com/repositories/my-repo"))
     assert(ArgsParser.parse[ArgsWithSink](args) == Right(expected))
     assert(ArgsParser.serialize(expected) == args)
   }
@@ -666,9 +666,8 @@ class ArgsParserSuite extends AnyFunSuite {
                       |Table:
                       |  --source-identifier <string> [required]
                       |  --source-location <native|big-query> (default: native)
-                      |GraphDb:
-                      |  --source-host <string> [required]
-                      |  --source-repository-name <string> [required]
+                      |External:
+                      |  --source-uri <string> [required]
                       |Test:
                       |  --source-data <BASE64 encoded java serialization of object> [required]
                       |  --source-metadata-file_path <string> [required]""".stripMargin
@@ -681,9 +680,8 @@ class ArgsParserSuite extends AnyFunSuite {
                       |Path:
                       |  --sink-base-path <string> [required]
                       |  --sink-format <parquet|json> (default: parquet)
-                      |GraphDb:
-                      |  --sink-host <string> [required]
-                      |  --sink-repository-name <string> [required]
+                      |External:
+                      |  --sink-uri <string> [required]
                       |Test:
                       |  --sink-verify <BASE64 encoded java serialization of object> [required]""".stripMargin
     assert(help == expected)

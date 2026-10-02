@@ -13,14 +13,15 @@ enum Sink[M, P <: Partitioner] {
     */
   case Path(basePath: String, format: Format = Format.Parquet) extends Sink[M, P]
 
-  /** Sink that is written to a graph database.
+  /** Sink that is written to an externally-managed system outside of Tyda's
+    * Dataset API (e.g. a graph database). The pipeline builder is responsible
+    * for both the meaning of `uri` and for actually performing the write.
     *
-    * @param host
-    *   The host of the graph database.
-    * @param repositoryName
-    *   The name of the repository within the graph database to write to.
+    * @param uri
+    *   An identifier for the external resource. Also used by DAG discovery to
+    *   match this sink up with sources that depend on it.
     */
-  case GraphDb(host: String, repositoryName: String) extends Sink[M, P]
+  case External(uri: String) extends Sink[M, P]
 
   /** Sink that is written to in a unit test.
     *

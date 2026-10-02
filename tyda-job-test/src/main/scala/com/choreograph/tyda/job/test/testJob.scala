@@ -3,6 +3,8 @@ package com.choreograph.tyda.job.test
 import com.choreograph.tyda.RunnerArgs
 import com.choreograph.tyda.RunnerArgs.SparkLogLevels
 import com.choreograph.tyda.iterator.IteratorRunner
+import com.choreograph.tyda.job.ExternalReader
+import com.choreograph.tyda.job.ExternalWriter
 import com.choreograph.tyda.job.TydaJob
 import com.choreograph.tyda.job.TydaJobContext
 import com.choreograph.tyda.table.ArgsParser
@@ -30,7 +32,13 @@ private def getRunnerArg: TestRunnerArg =
     case None => TestRunnerArg.Iterator
   }
 
-def testJob[Args](args: Args)(using job: TydaJob[Args]): Unit = {
+def testJob[Args](
+    args: Args,
+    externalWriter: ExternalWriter = ExternalWriter.unimplemented,
+    externalReader: ExternalReader = ExternalReader.unimplemented
+)(using
+    job: TydaJob[Args]
+): Unit = {
   val runnerArg = getRunnerArg
   val runner = runnerArg match {
     case TestRunnerArg.Iterator => IteratorRunner
@@ -39,7 +47,7 @@ def testJob[Args](args: Args)(using job: TydaJob[Args]): Unit = {
         "unittest"
       )
   }
-  val context = TydaJobContext(runner)
+  val context = TydaJobContext(runner, externalWriter, externalReader)
   job.run(args)(using context)
   context.run()
   val sinksWrittenTo = context.usedSinks.toSet
