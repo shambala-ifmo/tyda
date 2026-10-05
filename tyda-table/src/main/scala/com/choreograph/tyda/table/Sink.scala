@@ -13,7 +13,7 @@ enum Sink[M, P <: Partitioner] {
     */
   case Path(basePath: String, format: Format = Format.Parquet) extends Sink[M, P]
 
-  /** Sink that is written to an externally-managed system outside of Tyda's
+  /** Sink that is written as opaque documents to a system outside of Tyda's
     * Dataset API (e.g. a graph database). The pipeline builder is responsible
     * for both the meaning of `uri` and for actually performing the write.
     *
@@ -21,7 +21,7 @@ enum Sink[M, P <: Partitioner] {
     *   An identifier for the external resource. Also used by DAG discovery to
     *   match this sink up with sources that depend on it.
     */
-  case External(uri: String) extends Sink[M, P]
+  case Document(uri: String) extends Sink[M, P]
 
   /** Sink that is written to in a unit test.
     *

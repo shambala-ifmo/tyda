@@ -347,9 +347,9 @@ class ArgsParserSuite extends AnyFunSuite {
     assert(ArgsParser.serialize(expected) == args)
   }
 
-  test("support reading Source.External") {
+  test("support reading Source.Document") {
     val args = Seq("--source-uri", "graphdb://graphdb.example.com/repositories/my-repo")
-    val expected = ArgsWithSource(Source.External("graphdb://graphdb.example.com/repositories/my-repo"))
+    val expected = ArgsWithSource(Source.Document("graphdb://graphdb.example.com/repositories/my-repo"))
     assert(ArgsParser.parse[ArgsWithSource](args) == Right(expected))
     assert(ArgsParser.serialize(expected) == args)
   }
@@ -368,9 +368,9 @@ class ArgsParserSuite extends AnyFunSuite {
     assert(ArgsParser.serialize(expected) == args)
   }
 
-  test("support reading Sink.External") {
+  test("support reading Sink.Document") {
     val args = Seq("--sink-uri", "graphdb://graphdb.example.com/repositories/my-repo")
-    val expected = ArgsWithSink(Sink.External("graphdb://graphdb.example.com/repositories/my-repo"))
+    val expected = ArgsWithSink(Sink.Document("graphdb://graphdb.example.com/repositories/my-repo"))
     assert(ArgsParser.parse[ArgsWithSink](args) == Right(expected))
     assert(ArgsParser.serialize(expected) == args)
   }
@@ -666,7 +666,7 @@ class ArgsParserSuite extends AnyFunSuite {
                       |Table:
                       |  --source-identifier <string> [required]
                       |  --source-location <native|big-query> (default: native)
-                      |External:
+                      |Document:
                       |  --source-uri <string> [required]
                       |Test:
                       |  --source-data <BASE64 encoded java serialization of object> [required]
@@ -680,7 +680,7 @@ class ArgsParserSuite extends AnyFunSuite {
                       |Path:
                       |  --sink-base-path <string> [required]
                       |  --sink-format <parquet|json> (default: parquet)
-                      |External:
+                      |Document:
                       |  --sink-uri <string> [required]
                       |Test:
                       |  --sink-verify <BASE64 encoded java serialization of object> [required]""".stripMargin

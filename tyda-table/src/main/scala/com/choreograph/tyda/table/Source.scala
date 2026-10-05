@@ -46,7 +46,7 @@ enum Source[M, P <: Partitioner] {
 
   case Table(identifier: String, location: TableLocation = TableLocation.Native)
 
-  /** Source that is read from an externally-managed system outside of Tyda's
+  /** Source that is read as opaque documents from a system outside of Tyda's
     * Dataset API (e.g. a graph database). The pipeline builder is responsible
     * for both the meaning of `uri` and for actually performing the read.
     *
@@ -54,7 +54,7 @@ enum Source[M, P <: Partitioner] {
     *   An identifier for the external resource. Also used by DAG discovery to
     *   match this source up with the sink that produced it.
     */
-  case External(uri: String) extends Source[M, P]
+  case Document(uri: String) extends Source[M, P]
 
   /** Source that is read from in a unit test.
     *
@@ -72,7 +72,7 @@ object Source {
       source match {
         case source: Source.Path[M, P] => source.basePath
         case Source.Table(identifier, _) => identifier
-        case Source.External(uri) => uri
+        case Source.Document(uri) => uri
         case Source.Test(_, metadata) => metadata.file_path
       }
   }
@@ -111,9 +111,8 @@ object Source {
         case Source.Path(basePath, _, _, _, _) => Dataset.readPartitionsPaths[V](p.path(basePath))
         case Source.Table(identifier, location) =>
           Dataset.readTablePartitions[V](identifier, location).where(decoder.predicate(p))
-        case Source.External(_) =>
-          throw new UnsupportedOperationException(
-            "External sources are not readable through Tyda's Dataset API; read directly"
+        case Source.Document(_) => throw new UnsupportedOperationException(
+            "Document sources are not readable through Tyda's Dataset API; read directly"
           )
         case Source.Test(testValues, metadata) =>
           val paths = testValues match {
@@ -149,9 +148,8 @@ object Source {
         case Source.Table(identifier, location) =>
           ReadDatasetWrapper(Dataset.readTable[V, M](identifier, location), decoder.predicate(p))
 
-        case Source.External(_) =>
-          throw new UnsupportedOperationException(
-            "External sources are not readable through Tyda's Dataset API; read directly"
+        case Source.Document(_) => throw new UnsupportedOperationException(
+            "Document sources are not readable through Tyda's Dataset API; read directly"
           )
 
         case Source.Test(testData, metadata) => testData match {

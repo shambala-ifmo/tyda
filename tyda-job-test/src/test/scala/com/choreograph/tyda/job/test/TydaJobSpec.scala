@@ -1,14 +1,14 @@
 package com.choreograph.tyda.job.test
 
-import org.scalatest.funsuite.AnyFunSuite
-
 import scala.collection.mutable
+
+import org.scalatest.funsuite.AnyFunSuite
 
 import com.choreograph.tyda.Codec
 import com.choreograph.tyda.Dataset
 import com.choreograph.tyda.job.CheckpointArg
-import com.choreograph.tyda.job.ExternalReader
-import com.choreograph.tyda.job.ExternalWriter
+import com.choreograph.tyda.job.DocumentReader
+import com.choreograph.tyda.job.DocumentWriter
 import com.choreograph.tyda.job.TydaJob
 import com.choreograph.tyda.job.TydaJobContext
 import com.choreograph.tyda.table.Partitioner
@@ -25,19 +25,23 @@ object TydaJobSpec {
     }
   }
 
-  object JobWithExternalSink extends TydaJob[JobWithExternalSink.Args] {
-    final case class Args(source: Source[String, Partitioner.None], sink: Sink.External[String, Partitioner.None])
+  object JobWithDocumentSink extends TydaJob[JobWithDocumentSink.Args] {
+    final case class Args(
+        source: Source[String, Partitioner.None],
+        sink: Sink.Document[String, Partitioner.None]
+    )
 
-    def run(args: Args)(using TydaJobContext): Unit = {
-      args.source.read.writeExternal(args.sink)
-    }
+    def run(args: Args)(using TydaJobContext): Unit = { args.source.read.writeDocument(args.sink) }
   }
 
-  object JobWithExternalSource extends TydaJob[JobWithExternalSource.Args] {
-    final case class Args(source: Source.External[String, Partitioner.None], sink: Sink[String, Partitioner.None])
+  object JobWithDocumentSource extends TydaJob[JobWithDocumentSource.Args] {
+    final case class Args(
+        source: Source.Document[String, Partitioner.None],
+        sink: Sink[String, Partitioner.None]
+    )
 
     def run(args: Args)(using TydaJobContext): Unit = {
-      args.source.readExternal().write(args.sink, EmptyTuple)
+      args.source.readDocument().write(args.sink, EmptyTuple)
     }
   }
 
@@ -164,63 +168,65 @@ class TydaJobSpec extends AnyFunSuite {
     assert(ranVerify)
   }
 
-  test("External sink can not be written through Tyda's Dataset API") {
+  test("Document sink can not be written through Tyda's Dataset API") {
     intercept[UnsupportedOperationException] {
       testJob(Job.Args(
         Source.Test(Seq(Model("a"), Model("b"))),
-        Sink.External("graphdb://graphdb.example.com/repositories/my-repo")
+        Sink.Document("graphdb://graphdb.example.com/repositories/my-repo")
       ))
     }
   }
 
-  test("writeExternal throws when no ExternalWriter is configured") {
+  test("writeDocument throws when no DocumentWriter is configured") {
     intercept[UnsupportedOperationException] {
-      testJob(JobWithExternalSink.Args(
+      testJob(JobWithDocumentSink.Args(
         Source.Test(Seq("<a> <b> <c> .", "<d> <e> <f> .")),
-        Sink.External("graphdb://graphdb.example.com/repositories/my-repo")
+        Sink.Document("graphdb://graphdb.example.com/repositories/my-repo")
       ))
     }
   }
 
-  test("writeExternal sends each row as a document through the injected ExternalWriter") {
+  test("writeDocument sends each row as a document through the injected DocumentWriter") {
     val received = mutable.Buffer.empty[(String, String)]
-    val fakeWriter: ExternalWriter = (uri, document) => received += ((uri, document))
+    val fakeWriter: DocumentWriter = (uri, document) => received += ((uri, document))
 
     testJob(
-      JobWithExternalSink.Args(
+      JobWithDocumentSink.Args(
         Source.Test(Seq("<a> <b> <c> .", "<d> <e> <f> .")),
-        Sink.External("graphdb://graphdb.example.com/repositories/my-repo")
+        Sink.Document("graphdb://graphdb.example.com/repositories/my-repo")
       ),
       fakeWriter
     )
 
-    assert(received.toSeq == Seq(
-      ("graphdb://graphdb.example.com/repositories/my-repo", "<a> <b> <c> ."),
-      ("graphdb://graphdb.example.com/repositories/my-repo", "<d> <e> <f> .")
-    ))
+    assert(
+      received.toSeq == Seq(
+        ("graphdb://graphdb.example.com/repositories/my-repo", "<a> <b> <c> ."),
+        ("graphdb://graphdb.example.com/repositories/my-repo", "<d> <e> <f> .")
+      )
+    )
   }
 
-  test("readExternal throws when no ExternalReader is configured") {
+  test("readDocument throws when no DocumentReader is configured") {
     intercept[UnsupportedOperationException] {
-      testJob(JobWithExternalSource.Args(
-        Source.External("graphdb://graphdb.example.com/repositories/my-repo"),
+      testJob(JobWithDocumentSource.Args(
+        Source.Document("graphdb://graphdb.example.com/repositories/my-repo"),
         Sink.Test(_ => ())
       ))
     }
   }
 
-  test("readExternal fetches documents through the injected ExternalReader") {
-    val fakeReader: ExternalReader = {
+  test("readDocument fetches documents through the injected DocumentReader") {
+    val fakeReader: DocumentReader = {
       case "graphdb://graphdb.example.com/repositories/my-repo" => Seq("<a> <b> <c> .", "<d> <e> <f> .")
       case uri => throw new RuntimeException(s"Unexpected uri $uri")
     }
 
     testJob(
-      JobWithExternalSource.Args(
-        Source.External("graphdb://graphdb.example.com/repositories/my-repo"),
+      JobWithDocumentSource.Args(
+        Source.Document("graphdb://graphdb.example.com/repositories/my-repo"),
         Sink.Test { data => assert(data == Seq("<a> <b> <c> .", "<d> <e> <f> .")) }
       ),
-      externalReader = fakeReader
+      documentReader = fakeReader
     )
   }
 

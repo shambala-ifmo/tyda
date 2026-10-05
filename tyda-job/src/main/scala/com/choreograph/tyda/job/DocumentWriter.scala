@@ -1,13 +1,14 @@
 package com.choreograph.tyda.job
 
-trait ExternalWriter {
+trait DocumentWriter {
+
   /** Writes a single document to the external resource identified by `uri`. */
   def write(uri: String, document: String): Unit
 }
 
-object ExternalWriter {
-  val unimplemented: ExternalWriter = (uri, _) =>
+object DocumentWriter {
+  val unimplemented: DocumentWriter = (uri, _) =>
     throw new UnsupportedOperationException(
-      s"No ExternalWriter configured for $uri; override TydaJob.externalWriter to enable writing."
+      s"No DocumentWriter configured for $uri; override TydaJob.documentWriter to enable writing."
     )
 }
