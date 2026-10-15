@@ -57,6 +57,8 @@ class TydaJobContext(private val runner: Runner) {
           val verify = verifiers.getVerifier(partitioner)
           val collected = privateCollect(dataset)
           verify(collected)
+        case Sink.Table(_, _) => 
+          throw new UnsupportedOperationException("Sink.Table is not supported in tyda yet")
       }
     }
 }
