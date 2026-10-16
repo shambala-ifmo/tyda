@@ -798,6 +798,11 @@ private def addDecimalRangeAndRoundingIfNeeded(expr: SqlExpr, to: Codec[?], dial
 
 private def coalesce(exprs: SqlExpr*): SqlExpr = SqlExpr.Function("coalesce", exprs)
 
+private def minExcludingNaN(arg: SqlExpr, dialect: SqlDialect): SqlExpr = {
+  val isNan = SqlExpr.Function(dialect.isNanFunction, Seq(arg))
+  SqlExpr.Function("min", Seq(SqlExpr.Case(Seq((condition = SqlExpr.not(isNan), result = arg)))))
+}
+
 private def makeStruct(names: Seq[String], fields: Seq[SqlExpr], dialect: SqlDialect): SqlExpr =
   assert(names.length == fields.length)
   dialect.makeStruct match {
@@ -826,6 +831,12 @@ private def isFloatingPoint(codec: Codec[?]): Boolean =
   codec match {
     case Codec.Float | Codec.Double => true
     case _ => false
+  }
+
+private def isFloatingPointOrOptionFloatingPoint(codec: Codec[?]): Boolean =
+  codec match {
+    case Codec.Option(element) => isFloatingPoint(element)
+    case codec => isFloatingPoint(codec)
   }
 
 private def makeArray[T](values: Seq[SqlExpr], element: Codec[T], dialect: SqlDialect): SqlExpr = {
@@ -902,18 +913,27 @@ private def primitiveAggregate[T: Codec](
     case PrimitiveAggregate.CountDistinct() => Right(SqlExpr.Function("count", Seq(arg), distinct = true))
     case PrimitiveAggregate.BoolAnd() => simple(dialect.boolAndFunction)
     case PrimitiveAggregate.BoolOr() => simple(dialect.boolOrFunction)
-    case agg @ (PrimitiveAggregate.Min(_)) if isFloatingPoint(Codec[T]) =>
-      val function = "min"
+    case PrimitiveAggregate.Min(_) if isFloatingPoint(Codec[T]) =>
       dialect.floatingAggregate match {
-        case SqlDialect.FloatingAggregate.NaNIsLargest => simple(function)
+        case SqlDialect.FloatingAggregate.NaNIsLargest => simple("min")
+        case SqlDialect.FloatingAggregate.NaNIsSmallestAndLargest =>
+          Right(coalesce(minExcludingNaN(arg, dialect), literalToSqlExpr(Float.NaN, Codec.Float, dialect)))
+      }
+    case PrimitiveAggregate.MinOption(_) if isFloatingPointOrOptionFloatingPoint(Codec[T]) =>
+      dialect.floatingAggregate match {
+        case SqlDialect.FloatingAggregate.NaNIsLargest => simple("min")
         case SqlDialect.FloatingAggregate.NaNIsSmallestAndLargest =>
           val isNan = SqlExpr.Function(dialect.isNanFunction, Seq(arg))
-          val minWithoutNan =
-            SqlExpr.Function(function, Seq(SqlExpr.Case(Seq((condition = SqlExpr.not(isNan), result = arg)))))
-          Right(coalesce(minWithoutNan, literalToSqlExpr(Float.NaN, Codec.Float, dialect)))
+          val allNonNullAreNaN = SqlExpr.Function(dialect.boolAndFunction, Seq(isNan))
+          Right(SqlExpr.Case(
+            Seq((condition = allNonNullAreNaN, result = literalToSqlExpr(Float.NaN, Codec.Float, dialect))),
+            elseExpr = Some(minExcludingNaN(arg, dialect))
+          ))
       }
     case PrimitiveAggregate.Max(_) => simple("max")
+    case PrimitiveAggregate.MaxOption(_) => simple("max")
     case PrimitiveAggregate.Min(_) => simple("min")
+    case PrimitiveAggregate.MinOption(_) => simple("min")
     case PrimitiveAggregate.MaxBy(_) => binaryAgg("max_by")
     case PrimitiveAggregate.MinBy(_) => binaryAgg("min_by")
     case PrimitiveAggregate.Sum(CompatibleSum()) => simple("sum")
