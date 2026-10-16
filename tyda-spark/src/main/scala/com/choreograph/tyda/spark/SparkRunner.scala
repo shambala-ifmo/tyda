@@ -6,9 +6,9 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.ExtendedMode
 
 import com.choreograph.tyda.Dataset
+import com.choreograph.tyda.Dataset.Action.WriteTable
 import com.choreograph.tyda.Runner
 import com.choreograph.tyda.RunnerArgs
-import com.choreograph.tyda.Dataset.Action.WriteTable
 
 class SparkRunner(using spark: SparkSession) extends Runner {
   def execute(action: Dataset.Action): Unit = DatasetOnSpark.perform(action)
