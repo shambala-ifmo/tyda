@@ -305,7 +305,7 @@ object Codec {
     */
   private[tyda] case object Bytes extends Primitive[Binary]
 
-  private[tyda] sealed trait FromInjection[From, To] extends Codec[From] {
+  private[tyda] sealed trait FromInjection[From, To] extends Codec[From] with Serializable {
     def inj: Injection[From, To]
     def to: Codec[To]
   }
@@ -323,7 +323,7 @@ object Codec {
       def inj: Injection[From, To] = withInjection
       def to: Codec[To] = withTo
       def classTag: ClassTag[From] = summon
-    }
+    } 
 
   given byte: Codec[scala.Byte] = Byte
   given short: Codec[scala.Short] = Short
