@@ -52,6 +52,7 @@ object Expr extends ExprApi[Expr] {
     * can only be used as a key in [[Dataset.groupBy]], where it can be combined
     * with other keys using `++`. For example:
     * ```scala
+    * import com.choreograph.tyda.aggregates.sum
     * import com.choreograph.tyda.functions.cube
     * val ds: Dataset[(a: Int, b: Int, v: Long)] = ???
     * // Groups by (a, b), (a), (b) and ()
@@ -70,6 +71,7 @@ object Expr extends ExprApi[Expr] {
     * can only be used as a key in [[Dataset.groupBy]], where it can be combined
     * with other keys using `++`. For example:
     * ```scala
+    * import com.choreograph.tyda.aggregates.sum
     * import com.choreograph.tyda.functions.rollup
     * val ds: Dataset[(a: Int, b: Int, v: Long)] = ???
     * // Groups by (a, b), (a) and ()
