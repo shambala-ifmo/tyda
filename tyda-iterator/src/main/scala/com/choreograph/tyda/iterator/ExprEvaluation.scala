@@ -217,6 +217,8 @@ object ExprEvaluation {
           from => arrayEval(from)(indexEval(from))
         case ExprNode.Aggregate(_, _) =>
           unreachable("ExprNode.Aggregate should not not be contructable using public APIs on Epxr")
+        case ExprNode.GroupingSets(_, _, _) =>
+          unreachable("ExprNode.GroupingSets should be expanded before reaching the backend")
         case ExprNode.Cases(whenThenExpr, whenThenExprs, elseExpr) =>
           val branches = (whenThenExpr +: whenThenExprs).map(branch =>
             (impl(branch.whenExpr), impl(branch.thenExpr))
