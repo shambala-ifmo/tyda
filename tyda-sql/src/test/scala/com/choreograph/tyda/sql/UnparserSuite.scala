@@ -41,7 +41,7 @@ abstract class UnparserSuite extends SqlGoldenTestSuite {
 
   testSql("group by all") { ds4.groupByKey(_ => lit(None)).aggregateValue(countIf(!_.a.isEmpty)).values }
 
-  testSql("explode multiple expression") { ds.select(_.a, explode(_.d)) }
+  testSql("explode multiple expression") { ds.select(x => (x.a, explode(x.d))) }
 
   testSql("aggregate after grouped aggregate") {
     ds.groupByKey(_.b).aggregateValue(min(_.a)).pairs.aggregate(min(_._2))
@@ -59,7 +59,7 @@ abstract class UnparserSuite extends SqlGoldenTestSuite {
 
   testSql("select distinct") { ds.select(_.a).distinct }
 
-  testSql("inner join select after") { ds.join(ds2, (l, r) => l.a == r.a).select(_._1.a, _._2.a) }
+  testSql("inner join select after") { ds.join(ds2, (l, r) => l.a == r.a).select(x => (x._1.a, x._2.a)) }
 
   testSql("inner join select before") { ds.select(_.a).join(ds2.select(_.a), (l, r) => l == r) }
 
@@ -67,13 +67,13 @@ abstract class UnparserSuite extends SqlGoldenTestSuite {
     ds.select(_.a)
       .join(ds2.select(_.a), (l, r) => l == r)
       .join(ds3.select(_.a), (l, r) => l._1 == r)
-      .select(_._1._1, _._1._2, _._2)
+      .select(x => (x._1._1, x._1._2, x._2))
   }
 
   testSql("left join product on rhs") { ds.select(_.a).leftOuterJoin(ds2, (l, r) => l == r.a) }
 
   testSql("left join product on lhs") {
-    ds.leftOuterJoin(ds2.select(_.a), (l, r) => l.a == r).select(_._1.a, _._2)
+    ds.leftOuterJoin(ds2.select(_.a), (l, r) => l.a == r).select(x => (x._1.a, x._2))
   }
 
   testSql("full outer join product on lhs") { ds.fullOuterJoin(ds2.select(_.a), (l, r) => l.a == r) }

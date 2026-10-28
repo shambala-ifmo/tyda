@@ -135,7 +135,8 @@ trait DatasetAggregatesSuite extends DatasetSuite {
   )
   test[Pair, (TinyByte, Seq[Int])](
     "collect and map pairs",
-    ds => ds.groupByKey(_._1).aggregateValue(collect(_._2)).pairs.select(_._1, _._2.map(_.cast[Int] + 1))
+    ds =>
+      ds.groupByKey(_._1).aggregateValue(collect(_._2)).pairs.select(x => (x._1, x._2.map(_.cast[Int] + 1)))
   )
   test[PairSeq, Seq[TinyByte]](
     "concat and filter",
@@ -345,17 +346,17 @@ trait DatasetAggregatesSuite extends DatasetSuite {
 
   test[M1, (Long, Int)](
     "explode after aggregate",
-    ds => ds.groupByKey(_.d).aggregateValue(min(_.a)).pairs.select(explode(_._1), _._2)
+    ds => ds.groupByKey(_.d).aggregateValue(min(_.a)).pairs.select(x => (explode(x._1), x._2))
   )
 
   test[M1, (Int, Long)](
     "aggregate after explode",
-    ds => ds.select(_.a, explode(_.d)).groupByKey(_._1).aggregateValue(min(_._2)).pairs
+    ds => ds.select(x => (x.a, explode(x.d))).groupByKey(_._1).aggregateValue(min(_._2)).pairs
   )
 
   test[M1, (Int, Seq[Long])](
     "aggregate after select",
-    ds => ds.select(_.a, _.d).groupByKey(_._1).aggregateValue(concat(_._2)).pairs
+    ds => ds.select(x => (x.a, x.d)).groupByKey(_._1).aggregateValue(concat(_._2)).pairs
   )
 
   test[M1, (String, Int)](
